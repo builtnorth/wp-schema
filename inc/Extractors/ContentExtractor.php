@@ -1,6 +1,6 @@
 <?php
 
-namespace BuiltNorth\Schema\Extractors\Extractors;
+namespace BuiltNorth\Schema\Extractors;
 
 /**
  * Content Extractor

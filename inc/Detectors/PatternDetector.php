@@ -1,6 +1,6 @@
 <?php
 
-namespace BuiltNorth\Schema\Detectors\Detectors;
+namespace BuiltNorth\Schema\Detectors;
 
 /**
  * Pattern Detector

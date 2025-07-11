@@ -1,6 +1,6 @@
 <?php
 
-namespace BuiltNorth\Schema\Generators\Generators;
+namespace BuiltNorth\Schema\Generators;
 
 /**
  * WebSite Schema Generator
