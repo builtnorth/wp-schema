@@ -58,9 +58,14 @@ class SchemaGenerator
         // Allow plugins/themes to override the schema type
         $type = apply_filters('wp_schema_type_override', $type, $content, $options);
 
-        // If content is already an array, use it directly
+        // If content is already an array, use it directly but still apply final schema filter
         if (is_array($content)) {
-            return self::generate_schema_by_type($type, $content, $options);
+            $schema = self::generate_schema_by_type($type, $content, $options);
+            
+            // Allow plugins/themes to modify final schema
+            $schema = apply_filters('wp_schema_final_schema', $schema, $content, $type, $options);
+            
+            return $schema;
         }
 
         // Get data from hooks (primary method)

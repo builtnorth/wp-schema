@@ -75,6 +75,10 @@ class PolarisBlocksIntegration extends BaseIntegration
         }
     }
 
+
+
+
+
     /**
      * Get accordion/FAQ data
      *
@@ -137,30 +141,13 @@ class PolarisBlocksIntegration extends BaseIntegration
             return null;
         }
 
-        // Get organization data from site options
-        $org_name = get_bloginfo('name');
-        $org_address = get_option('polaris_contact_address', '');
-        $org_phone = get_option('polaris_contact_phone', '');
-        $org_email = get_option('polaris_contact_email', '');
-
+        // For block-level map data, we'll provide basic structure
+        // The actual business data will be handled by PolarisOrganizationIntegration
         $place_data = [
-            'name' => $org_name
+            'name' => get_bloginfo('name')
+            // Note: Address, telephone, and email will be provided by PolarisOrganizationIntegration
+            // for organization schemas, so we don't duplicate them here
         ];
-
-        if ($org_address) {
-            $place_data['address'] = [
-                '@type' => 'PostalAddress',
-                'streetAddress' => $org_address
-            ];
-        }
-
-        if ($org_phone) {
-            $place_data['telephone'] = $org_phone;
-        }
-
-        if ($org_email) {
-            $place_data['email'] = $org_email;
-        }
 
         return $place_data;
     }
@@ -180,6 +167,8 @@ class PolarisBlocksIntegration extends BaseIntegration
             return null;
         }
 
+        // For block-level contact data, we'll provide basic structure
+        // The actual business data will be handled by PolarisOrganizationIntegration
         $contact_data = [
             '@type' => 'ContactPoint',
             'contactType' => 'customer service'
@@ -189,20 +178,8 @@ class PolarisBlocksIntegration extends BaseIntegration
             $contact_data['name'] = get_bloginfo('name');
         }
 
-        if ($attrs['email'] ?? false) {
-            $contact_data['email'] = get_option('polaris_contact_email', '');
-        }
-
-        if ($attrs['phone'] ?? false) {
-            $contact_data['telephone'] = get_option('polaris_contact_phone', '');
-        }
-
-        if ($attrs['address'] ?? false) {
-            $contact_data['address'] = [
-                '@type' => 'PostalAddress',
-                'streetAddress' => get_option('polaris_contact_address', '')
-            ];
-        }
+        // Note: Email, phone, and address will be provided by PolarisOrganizationIntegration
+        // for organization schemas, so we don't duplicate them here
 
         return $contact_data;
     }
@@ -222,23 +199,12 @@ class PolarisBlocksIntegration extends BaseIntegration
             return null;
         }
 
-        $social_profiles = [];
-        $social_platforms = $attrs['socialMediaPlatforms'] ?? [];
-
-        foreach ($social_platforms as $platform) {
-            $url = get_option("polaris_social_{$platform}", '');
-            if ($url) {
-                $social_profiles[] = $url;
-            }
-        }
-
-        if (empty($social_profiles)) {
-            return null;
-        }
-
+        // For block-level social media data, we'll provide basic structure
+        // The actual business social data will be handled by PolarisOrganizationIntegration
         return [
-            'name' => get_bloginfo('name'),
-            'sameAs' => $social_profiles
+            'name' => get_bloginfo('name')
+            // Note: sameAs will be provided by PolarisOrganizationIntegration
+            // for organization schemas, so we don't duplicate it here
         ];
     }
 
@@ -257,27 +223,13 @@ class PolarisBlocksIntegration extends BaseIntegration
             return null;
         }
 
-        $days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        $opening_hours = [];
-
-        foreach ($days as $day) {
-            if ($attrs[$day] ?? false) {
-                $day_hours = get_option("polaris_business_hours_{$day}", '');
-                if ($day_hours) {
-                    $opening_hours[] = [
-                        '@type' => 'OpeningHoursSpecification',
-                        'dayOfWeek' => ucfirst($day),
-                        'opens' => $day_hours
-                    ];
-                }
-            }
-        }
-
-        if (empty($opening_hours)) {
-            return null;
-        }
-
-        return $opening_hours;
+        // For block-level business hours data, we'll provide basic structure
+        // The actual business hours will be handled by PolarisOrganizationIntegration
+        return [
+            '@type' => 'OpeningHoursSpecification'
+            // Note: openingHours will be provided by PolarisOrganizationIntegration
+            // for organization schemas, so we don't duplicate it here
+        ];
     }
 
     /**
