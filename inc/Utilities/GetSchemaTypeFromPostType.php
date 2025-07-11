@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Utility\Utilities;
+namespace BuiltNorth\Schema\Utilities;
+
+use BuiltNorth\Schema\Detectors\PostTypeDetector;
 
 /**
  * Get Schema Type From Post Type
@@ -22,6 +24,6 @@ class GetSchemaTypeFromPostType
      */
     public static function render($post_id)
     {
-        return \BuiltNorth\Utility\Utilities\SchemaGenerator\Detectors\PostTypeDetector::render($post_id);
+        return PostTypeDetector::render($post_id);
     }
 } 

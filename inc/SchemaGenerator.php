@@ -1,14 +1,15 @@
 <?php
 
-namespace BuiltNorth\Utility\Utilities;
+namespace BuiltNorth\Schema;
 
-use BuiltNorth\Schema\SchemaGenerator as SchemaGeneratorCore;
+use BuiltNorth\Schema\Detectors\PatternDetector;
+use BuiltNorth\Schema\Extractors\ContentExtractor;
+use BuiltNorth\Schema\Generators\BaseGenerator;
 
 /**
  * Schema Generator Utility
  * 
  * Provides easy access to schema generation functionality
- * Uses the dedicated wp-schema package for core functionality
  */
 class SchemaGenerator
 {
@@ -22,7 +23,19 @@ class SchemaGenerator
      */
     public static function render($content = '', $type = 'faq', $options = [])
     {
-        return SchemaGeneratorCore::render($content, $type, $options);
+        if (empty($content)) {
+            return '';
+        }
+
+        // Detect patterns in content
+        $patterns = self::detect_patterns($content, $type);
+        
+        // Extract data based on type
+        $extractor = new ContentExtractor($content);
+        $data = $extractor->extract($type, $options);
+        
+        // Generate schema based on type
+        return self::generate_schema_by_type($type, $data, $options);
     }
 
     /**
@@ -33,7 +46,9 @@ class SchemaGenerator
      */
     public static function output_schema_script($schema)
     {
-        SchemaGeneratorCore::output_schema_script($schema);
+        if (!empty($schema)) {
+            echo '<script type="application/ld+json">' . $schema . '</script>';
+        }
     }
 
     /**
@@ -45,7 +60,7 @@ class SchemaGenerator
      */
     public static function detect_patterns($content, $type)
     {
-        return SchemaGeneratorCore::detect_patterns($content, $type);
+        return PatternDetector::detect_patterns($content, $type);
     }
 
     /**
@@ -57,7 +72,37 @@ class SchemaGenerator
      */
     public static function get_best_pattern($schema_type, $detected_patterns)
     {
-        return SchemaGeneratorCore::get_best_pattern($schema_type, $detected_patterns);
+        if (empty($detected_patterns)) {
+            return '';
+        }
+        
+        // Return the first pattern as default
+        return $detected_patterns[0];
+    }
+
+    /**
+     * Generate schema by type
+     *
+     * @param string $type Schema type
+     * @param array $data Extracted data
+     * @param array $options Generation options
+     * @return string JSON-LD schema markup
+     */
+    private static function generate_schema_by_type($type, $data, $options = [])
+    {
+        $schema_data = [
+            '@context' => 'https://schema.org',
+            '@type' => ucfirst($type)
+        ];
+
+        // Merge data into schema
+        foreach ($data as $key => $value) {
+            if (!empty($value)) {
+                $schema_data[$key] = $value;
+            }
+        }
+
+        return wp_json_encode($schema_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -68,7 +113,7 @@ class SchemaGenerator
      */
     public static function organization($data)
     {
-        return SchemaGeneratorCore::render($data, 'organization');
+        return self::render($data, 'organization');
     }
 
     /**
@@ -79,7 +124,7 @@ class SchemaGenerator
      */
     public static function local_business($data)
     {
-        return SchemaGeneratorCore::render($data, 'local_business');
+        return self::render($data, 'local_business');
     }
 
     /**
@@ -90,7 +135,7 @@ class SchemaGenerator
      */
     public static function website($data)
     {
-        return SchemaGeneratorCore::render($data, 'website');
+        return self::render($data, 'website');
     }
 
     /**
@@ -101,7 +146,7 @@ class SchemaGenerator
      */
     public static function article($content)
     {
-        return SchemaGeneratorCore::render($content, 'article');
+        return self::render($content, 'article');
     }
 
     /**
@@ -112,7 +157,7 @@ class SchemaGenerator
      */
     public static function faq($content)
     {
-        return SchemaGeneratorCore::render($content, 'faq');
+        return self::render($content, 'faq');
     }
 
     /**
@@ -123,7 +168,7 @@ class SchemaGenerator
      */
     public static function product($data)
     {
-        return SchemaGeneratorCore::render($data, 'product');
+        return self::render($data, 'product');
     }
 
     /**
@@ -134,6 +179,6 @@ class SchemaGenerator
      */
     public static function person($data)
     {
-        return SchemaGeneratorCore::render($data, 'person');
+        return self::render($data, 'person');
     }
 } 
