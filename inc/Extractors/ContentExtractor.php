@@ -16,12 +16,16 @@ class ContentExtractor
 	/**
 	 * Constructor
 	 *
-	 * @param string $content HTML content
+	 * @param mixed $content HTML content or other data
 	 */
 	public function __construct($content)
 	{
 		$this->content = $content;
-		$this->parse_html();
+		
+		// Only parse HTML if content is a string
+		if (is_string($content)) {
+			$this->parse_html();
+		}
 	}
 
 	/**
@@ -45,6 +49,11 @@ class ContentExtractor
 	 */
 	public function extract($type, $options = [])
 	{
+		// If content is not a string, return it as-is
+		if (!is_string($this->content)) {
+			return is_array($this->content) ? $this->content : [];
+		}
+		
 		switch ($type) {
 			case 'faq':
 				return $this->extract_faq_data($options);

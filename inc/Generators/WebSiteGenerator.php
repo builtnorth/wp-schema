@@ -15,7 +15,7 @@ class WebSiteGenerator extends BaseGenerator
 	 *
 	 * @param array $data WebSite data
 	 * @param array $options Generation options
-	 * @return string JSON-LD schema markup
+	 * @return array JSON-LD schema data
 	 */
 	public static function generate($data, $options = [])
 	{
@@ -95,13 +95,9 @@ class WebSiteGenerator extends BaseGenerator
 			$schema_data['breadcrumb'] = $breadcrumb_data;
 		}
 
-		// Add site navigation
-		$navigation_data = self::process_navigation($data);
-		if (!empty($navigation_data)) {
-			$schema_data['mainEntity'] = $navigation_data;
-		}
 
-		return self::create_schema(self::add_context($schema_data, 'WebSite'));
+
+		return self::add_context($schema_data, 'WebSite');
 	}
 
 	/**
@@ -182,7 +178,7 @@ class WebSiteGenerator extends BaseGenerator
 	{
 		// Check if search functionality is available
 		if (!empty($data['search_url']) || !empty($data['search_enabled'])) {
-			$search_url = $data['search_url'] ?? get_site_url() . '/?s={search_term_string}';
+			$search_url = $data['search_url'] ?? home_url('/?s={search_term_string}');
 			
 			return [
 				'@type' => 'SearchAction',
@@ -199,7 +195,7 @@ class WebSiteGenerator extends BaseGenerator
 			'@type' => 'SearchAction',
 			'target' => [
 				'@type' => 'EntryPoint',
-				'urlTemplate' => get_site_url() . '/?s={search_term_string}'
+				'urlTemplate' => home_url('/?s={search_term_string}')
 			],
 			'query-input' => 'required name=search_term_string'
 		];
@@ -273,7 +269,7 @@ class WebSiteGenerator extends BaseGenerator
 		return [
 			'@type' => 'Organization',
 			'name' => self::sanitize_text(get_bloginfo('name')),
-			'url' => get_site_url()
+			'url' => home_url('/')
 		];
 	}
 
@@ -322,73 +318,38 @@ class WebSiteGenerator extends BaseGenerator
 			}
 		}
 
-		// Generate breadcrumbs from current page
-		if (is_page() || is_single()) {
-			$breadcrumbs = [];
-			$position = 1;
+		// Check if Breadcrumbs component and method exist
+		if (!class_exists('\BuiltNorth\Utility\Components\Breadcrumbs') || 
+			!method_exists('\BuiltNorth\Utility\Components\Breadcrumbs', 'get_breadcrumb_data')) {
+			return [];
+		}
 
-			// Home page
-			$breadcrumbs[] = [
+		// Use the Breadcrumbs component to get breadcrumb data
+		$breadcrumb_data = \BuiltNorth\Utility\Components\Breadcrumbs::get_breadcrumb_data();
+		
+		if (empty($breadcrumb_data)) {
+			return [];
+		}
+		
+		$schema_breadcrumbs = [];
+		$position = 1;
+		
+		foreach ($breadcrumb_data as $breadcrumb) {
+			$schema_breadcrumbs[] = [
 				'@type' => 'ListItem',
 				'position' => $position++,
-				'name' => 'Home',
-				'item' => get_site_url()
-			];
-
-			// Current page
-			$breadcrumbs[] = [
-				'@type' => 'ListItem',
-				'position' => $position,
-				'name' => get_the_title(),
-				'item' => get_permalink()
-			];
-
-			return [
-				'@type' => 'BreadcrumbList',
-				'itemListElement' => $breadcrumbs
+				'name' => $breadcrumb['text'],
+				'item' => $breadcrumb['url']
 			];
 		}
-
-		return [];
+		
+		return [
+			'@type' => 'BreadcrumbList',
+			'itemListElement' => $schema_breadcrumbs
+		];
 	}
 
-	/**
-	 * Process site navigation
-	 *
-	 * @param array $data Website data
-	 * @return array Navigation data
-	 */
-	private static function process_navigation($data)
-	{
-		if (!empty($data['navigation'])) {
-			if (is_array($data['navigation'])) {
-				return [
-					'@type' => 'SiteNavigationElement',
-					'name' => 'Main Navigation',
-					'hasPart' => $data['navigation']
-				];
-			}
-		}
 
-		// Generate navigation from WordPress menu
-		$nav_items = wp_get_nav_menu_items('primary');
-		if ($nav_items) {
-			$navigation = [];
-			foreach ($nav_items as $item) {
-				$navigation[] = [
-					'@type' => 'WebPage',
-					'name' => $item->title,
-					'url' => $item->url
-				];
-			}
 
-			return [
-				'@type' => 'SiteNavigationElement',
-				'name' => 'Main Navigation',
-				'hasPart' => $navigation
-			];
-		}
 
-		return [];
-	}
 } 

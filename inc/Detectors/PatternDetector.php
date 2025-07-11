@@ -256,6 +256,46 @@ class PatternDetector
 	}
 
 	/**
+	 * Detect patterns in content based on schema type
+	 *
+	 * @param string $content Content to analyze
+	 * @param string $type Schema type
+	 * @return array Detected patterns
+	 */
+	public static function detect_patterns($content, $type)
+	{
+		switch ($type) {
+			case 'faq':
+				return self::detect_faq_patterns($content);
+			case 'article':
+				return self::detect_article_patterns($content);
+			case 'product':
+				return self::detect_product_patterns($content);
+			case 'organization':
+				return self::detect_organization_patterns($content);
+			case 'person':
+				return self::detect_person_patterns($content);
+			case 'local_business':
+			case 'localbusiness':
+				return self::detect_local_business_patterns($content);
+			case 'website':
+			case 'web_site':
+				return self::detect_website_patterns($content);
+			default:
+				// Try all pattern detection methods
+				$all_patterns = [];
+				$all_patterns = array_merge($all_patterns, self::detect_faq_patterns($content));
+				$all_patterns = array_merge($all_patterns, self::detect_article_patterns($content));
+				$all_patterns = array_merge($all_patterns, self::detect_product_patterns($content));
+				$all_patterns = array_merge($all_patterns, self::detect_organization_patterns($content));
+				$all_patterns = array_merge($all_patterns, self::detect_person_patterns($content));
+				$all_patterns = array_merge($all_patterns, self::detect_local_business_patterns($content));
+				$all_patterns = array_merge($all_patterns, self::detect_website_patterns($content));
+				return array_unique($all_patterns);
+		}
+	}
+
+	/**
 	 * Get the best pattern for a given schema type
 	 *
 	 * @param string $schema_type Schema type (faq, article, product, etc.)

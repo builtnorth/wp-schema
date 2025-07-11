@@ -19,15 +19,20 @@ class SchemaGenerator
      * @param mixed $content Content to extract schema from
      * @param string $type Schema type (faq, article, product, etc.)
      * @param array $options Generation options
-     * @return string JSON-LD schema markup or empty string
+     * @return array JSON-LD schema data or empty array
      */
     public static function render($content = '', $type = 'faq', $options = [])
     {
         if (empty($content)) {
-            return '';
+            return [];
         }
 
-        // Detect patterns in content
+        // If content is already an array, use it directly
+        if (is_array($content)) {
+            return self::generate_schema_by_type($type, $content, $options);
+        }
+
+        // For string content, detect patterns and extract data
         $patterns = self::detect_patterns($content, $type);
         
         // Extract data based on type
@@ -41,13 +46,13 @@ class SchemaGenerator
     /**
      * Output JSON-LD schema script tag
      *
-     * @param string $schema JSON-LD schema markup
+     * @param array $schema JSON-LD schema data
      * @return void
      */
     public static function output_schema_script($schema)
     {
         if (!empty($schema)) {
-            echo '<script type="application/ld+json">' . $schema . '</script>';
+            echo '<script type="application/ld+json">' . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>';
         }
     }
 
@@ -86,30 +91,55 @@ class SchemaGenerator
      * @param string $type Schema type
      * @param array $data Extracted data
      * @param array $options Generation options
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     private static function generate_schema_by_type($type, $data, $options = [])
     {
-        $schema_data = [
-            '@context' => 'https://schema.org',
-            '@type' => ucfirst($type)
-        ];
+        // Use specific generators for known types
+        switch ($type) {
+            case 'organization':
+                return \BuiltNorth\Schema\Generators\OrganizationGenerator::generate($data, $options);
+            case 'local_business':
+                return \BuiltNorth\Schema\Generators\LocalBusinessGenerator::generate($data, $options);
+            case 'website':
+                return \BuiltNorth\Schema\Generators\WebSiteGenerator::generate($data, $options);
+            case 'article':
+                return \BuiltNorth\Schema\Generators\ArticleGenerator::generate($data, $options);
+            case 'product':
+                return \BuiltNorth\Schema\Generators\ProductGenerator::generate($data, $options);
+            case 'person':
+                return \BuiltNorth\Schema\Generators\PersonGenerator::generate($data, $options);
+            case 'faq':
+                return \BuiltNorth\Schema\Generators\FaqGenerator::generate($data, $options);
+            case 'review':
+                return \BuiltNorth\Schema\Generators\ReviewGenerator::generate($data, $options);
+            case 'aggregate_rating':
+                return \BuiltNorth\Schema\Generators\AggregateRatingGenerator::generate($data, $options);
+            case 'navigation':
+                return \BuiltNorth\Schema\Generators\NavigationGenerator::generate($data, $options);
+            default:
+                // Fallback to basic schema generation
+                $schema_data = [
+                    '@context' => 'https://schema.org',
+                    '@type' => ucfirst($type)
+                ];
 
-        // Merge data into schema
-        foreach ($data as $key => $value) {
-            if (!empty($value)) {
-                $schema_data[$key] = $value;
-            }
+                // Merge data into schema
+                foreach ($data as $key => $value) {
+                    if (!empty($value)) {
+                        $schema_data[$key] = $value;
+                    }
+                }
+
+                return $schema_data;
         }
-
-        return wp_json_encode($schema_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
      * Quick organization schema
      *
      * @param array $data Organization data
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     public static function organization($data)
     {
@@ -120,7 +150,7 @@ class SchemaGenerator
      * Quick local business schema
      *
      * @param array $data Business data
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     public static function local_business($data)
     {
@@ -131,7 +161,7 @@ class SchemaGenerator
      * Quick website schema
      *
      * @param array $data Website data
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     public static function website($data)
     {
@@ -142,7 +172,7 @@ class SchemaGenerator
      * Quick article schema
      *
      * @param mixed $content Article content
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     public static function article($content)
     {
@@ -153,7 +183,7 @@ class SchemaGenerator
      * Quick FAQ schema
      *
      * @param mixed $content FAQ content
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     public static function faq($content)
     {
@@ -164,7 +194,7 @@ class SchemaGenerator
      * Quick product schema
      *
      * @param array $data Product data
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     public static function product($data)
     {
@@ -175,7 +205,7 @@ class SchemaGenerator
      * Quick person schema
      *
      * @param array $data Person data
-     * @return string JSON-LD schema markup
+     * @return array JSON-LD schema data
      */
     public static function person($data)
     {

@@ -14,7 +14,7 @@ abstract class BaseGenerator
 	 *
 	 * @param array $data Extracted data
 	 * @param array $options Generation options
-	 * @return string JSON-LD schema markup
+	 * @return array JSON-LD schema data
 	 */
 	abstract public static function generate($data, $options = []);
 
@@ -52,14 +52,14 @@ abstract class BaseGenerator
 	}
 
 	/**
-	 * Create JSON-LD schema
+	 * Create JSON-LD schema data (returns array)
 	 *
 	 * @param array $schema_data Schema data array
-	 * @return string JSON-LD markup
+	 * @return array JSON-LD schema data
 	 */
 	protected static function create_schema($schema_data)
 	{
-		return wp_json_encode($schema_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		return $schema_data;
 	}
 
 	/**
