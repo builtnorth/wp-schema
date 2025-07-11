@@ -45,6 +45,9 @@ class App
      */
     private function init()
     {
+        // Initialize the schema generator with default integrations
+        SchemaGenerator::init();
+        
         $this->schema_generator = new SchemaGenerator();
         
         // Add WordPress hooks

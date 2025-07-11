@@ -6,8 +6,8 @@ A comprehensive schema generation package for WordPress with SEO optimization, l
 
 - **SEO-Focused**: Generates JSON-LD structured data for search engines
 - **Logo Support**: Comprehensive logo handling with multiple formats
-- **Content-Agnostic**: Works with HTML, JSON, arrays, post meta, and mixed data
-- **Auto-Detection**: Intelligently detects content types and patterns
+- **Hook-Based**: Flexible schema generation through WordPress hooks
+- **Block Support**: Generate schema from individual Gutenberg blocks
 - **Business Schemas**: Specialized for local business and organization data
 - **WordPress Integration**: Seamless integration with WordPress core
 
@@ -189,15 +189,61 @@ $schema = SchemaGenerator::render($data, 'organization');
 $schema = SchemaGenerator::render(get_the_ID(), 'article');
 ```
 
-## Pattern Recognition
+## Automatic Integrations
 
-The package automatically detects patterns in content:
+The system includes pre-built integrations for popular WordPress plugins and blocks that work out of the box:
 
-- **Logo Patterns**: `<img class="logo">`, `<img alt="logo">`, meta tags
-- **Business Patterns**: Contact info, addresses, business hours
-- **Content Patterns**: FAQ structures, article content, product information
+### Available Integrations
+
+- **WooCommerce** - Automatic Product, Review, and Organization schema
+- **WordPress Core** - Article, WebPage, and ImageObject schema for core content
+- **Core Blocks** - Schema data for Gutenberg blocks (images, videos, etc.)
+
+- **Easy Digital Downloads** - Product schema for digital downloads
+- **The Events Calendar** - Event schema for calendar events
+- **WP Recipe Maker** - Recipe schema for cooking recipes
+- **Advanced Custom Fields** - Schema from ACF custom fields
+- **Custom Post Type UI** - Schema for custom post types
+- **Polaris Blocks** - Schema data for Polaris Blocks plugin (accordion, map, contact info, social media, etc.)
+
+### Managing Integrations
+
+```php
+// Check available integrations
+$integrations = \BuiltNorth\Schema\Defaults\DefaultIntegrations::get_available_integrations();
+
+// Disable an integration
+\BuiltNorth\Schema\Defaults\DefaultIntegrations::toggle_integration('woocommerce', false);
+
+// Check if integration is enabled
+$enabled = \BuiltNorth\Schema\Defaults\DefaultIntegrations::is_integration_enabled('woocommerce');
+```
+
+See [Defaults/README.md](inc/Defaults/README.md) for detailed integration documentation.
+
+## Hook-Based Generation
+
+The package uses WordPress hooks for flexible schema generation:
+
+- **Post-Level Hooks**: Override schema types and provide custom data for posts
+- **Block-Level Hooks**: Provide schema data from individual Gutenberg blocks (schema type determined by post type)
+- **Content Hooks**: Modify content and data before schema generation
+- **Schema Hooks**: Override final schema output
 
 ## Extending
+
+### Hook-Based Extension (Recommended)
+
+The package now supports a comprehensive hook system that allows plugins and themes to:
+
+- Override schema types for posts, blocks, or specific content
+- Provide custom data for schema generation
+- Modify detected patterns and extracted data
+- Handle custom schema types not built into the system
+- Control block-level schema generation
+- Collect schemas from multiple sources within a single post
+
+See [HOOKS.md](HOOKS.md) for complete documentation and examples.
 
 ### Adding New Schema Types
 
@@ -206,11 +252,22 @@ The package automatically detects patterns in content:
 3. Implement required methods
 4. Register in `SchemaGenerator.php`
 
-### Adding New Extractors
+### Adding Custom Data Sources
 
-1. Create a new extractor in `Extractors/`
-2. Implement extraction logic
-3. Register in `SchemaGenerator.php`
+Use the hook system to provide data for custom content types:
+
+```php
+// Provide data for custom post type
+add_filter('wp_schema_data_for_post', function($custom_data, $post_id, $schema_type, $options) {
+    if ($schema_type === 'MyCustomType') {
+        return [
+            'name' => get_the_title($post_id),
+            'customField' => get_post_meta($post_id, '_custom_field', true)
+        ];
+    }
+    return null;
+}, 10, 4);
+```
 
 ## Requirements
 
