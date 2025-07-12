@@ -4,6 +4,9 @@ namespace BuiltNorth\Schema;
 
 use BuiltNorth\Schema\Generators\BaseGenerator;
 
+// Bootstrap the new architecture
+require_once __DIR__ . '/bootstrap.php';
+
 /**
  * Schema Generator Utility
  * 
@@ -11,6 +14,12 @@ use BuiltNorth\Schema\Generators\BaseGenerator;
  */
 class SchemaGenerator
 {
+    /**
+     * Recursion guard for schema generation
+     * @var bool
+     */
+    private static $is_generating = false;
+    
     /**
      * Initialize the schema generator
      *
@@ -187,7 +196,8 @@ class SchemaGenerator
         }
         
         // Allow integrations to provide context-based schemas
-        $schemas = apply_filters('wp_schema_context_schemas', [], $context, []);
+        // Use render_for_context which has recursion protection
+        $schemas = self::render_for_context([]);
         
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('SchemaGenerator::output_schema() - schemas from integrations: ' . count($schemas));
@@ -602,6 +612,13 @@ class SchemaGenerator
      */
     public static function render_for_context($options = [])
     {
+        // Prevent infinite recursion
+        if (self::$is_generating) {
+            return [];
+        }
+        
+        self::$is_generating = true;
+        
         // Get current context
         $context = self::get_current_context();
         
@@ -631,6 +648,7 @@ class SchemaGenerator
             error_log('SchemaGenerator::render_for_context() - final schemas count: ' . count($schemas));
         }
         
+        self::$is_generating = false;
         return $schemas;
     }
 
@@ -1064,4 +1082,4 @@ class SchemaGenerator
     {
         return self::render($data, 'person');
     }
-} 
+}

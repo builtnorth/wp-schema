@@ -1,20 +1,25 @@
 <?php
 
+declare(strict_types=1);
+
 namespace BuiltNorth\Schema\Generators;
 
 /**
  * Organization Schema Generator
  * 
- * Generates Organization schema from various data structures
+ * Generates Organization schema from various data structures.
+ * Supports integration with WordPress value objects and modern PHP features.
+ * 
+ * @since 2.0.0
  */
 class OrganizationGenerator extends BaseGenerator
 {
 	/**
 	 * Generate Organization schema from data
 	 *
-	 * @param array $data Organization data
-	 * @param array $options Generation options
-	 * @return array JSON-LD schema data
+	 * @param array<string, mixed> $data Organization data
+	 * @param array<string, mixed> $options Generation options
+	 * @return array<string, mixed> JSON-LD schema data
 	 */
 	public static function generate($data, $options = [])
 	{
