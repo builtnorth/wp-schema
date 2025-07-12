@@ -107,10 +107,14 @@ class PolarisCoreIntegration implements DataProviderInterface
     
     /**
      * Get supported schema types
+     * 
+     * Polaris Core provides organization data that can be used across ALL schema types,
+     * so we don't restrict to specific types. The canProvide() method determines
+     * whether we can provide data for any given context.
      */
     public function getSupportedSchemaTypes(): array
     {
-        return ['Organization', 'LocalBusiness', 'Corporation'];
+        return []; // Supports all schema types - no restrictions
     }
 
     /**

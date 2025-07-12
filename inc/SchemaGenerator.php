@@ -7,9 +7,6 @@ use BuiltNorth\Schema\Services\SchemaService;
 use BuiltNorth\Schema\Services\OutputService;
 use BuiltNorth\Schema\Services\RestApiService;
 
-// Bootstrap the new architecture
-require_once __DIR__ . '/bootstrap.php';
-
 /**
  * Schema Generator Utility
  * 
