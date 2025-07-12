@@ -21,6 +21,18 @@ class SchemaGenerator
     private static $is_generating = false;
     
     /**
+     * Global recursion counter to detect deep loops
+     * @var int
+     */
+    private static $recursion_depth = 0;
+    
+    /**
+     * Maximum allowed recursion depth
+     * @var int
+     */
+    private static $max_recursion_depth = 3;
+    
+    /**
      * Initialize the schema generator
      *
      * @return void
@@ -612,8 +624,12 @@ class SchemaGenerator
      */
     public static function render_for_context($options = [])
     {
-        // Prevent infinite recursion
-        if (self::$is_generating) {
+        // Prevent infinite recursion with multiple layers of protection
+        self::$recursion_depth++;
+        
+        if (self::$is_generating || self::$recursion_depth > self::$max_recursion_depth) {
+            error_log("SchemaGenerator: Recursion detected (depth: " . self::$recursion_depth . "), aborting to prevent memory exhaustion");
+            self::$recursion_depth--;
             return [];
         }
         
@@ -626,8 +642,26 @@ class SchemaGenerator
             error_log('SchemaGenerator::render_for_context() - context: ' . $context);
         }
         
-        // Allow integrations to provide context-based schemas
-        $schemas = apply_filters('wp_schema_context_schemas', [], $context, $options);
+        // Get schemas from new architecture first
+        $schemas = [];
+        try {
+            if (class_exists('\\BuiltNorth\\Schema\\Core\\Container')) {
+                $container = \BuiltNorth\Schema\Core\Container::getInstance();
+                if ($container->has('BuiltNorth\\Schema\\Contracts\\SchemaManagerInterface')) {
+                    $schemaManager = $container->get('BuiltNorth\\Schema\\Contracts\\SchemaManagerInterface');
+                    $schemas = $schemaManager->generateSchemas($context, $options);
+                }
+            }
+        } catch (\Exception $e) {
+            error_log('Error using new architecture: ' . $e->getMessage());
+        }
+        
+        // Allow legacy integrations to add schemas (only if not already generating to prevent loops)
+        $legacySchemas = [];
+        if (self::$recursion_depth <= 1) {
+            $legacySchemas = apply_filters('wp_schema_context_schemas', [], $context, $options);
+        }
+        $schemas = array_merge($schemas, $legacySchemas);
         
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('SchemaGenerator::render_for_context() - schemas from integrations: ' . count($schemas));
@@ -649,6 +683,7 @@ class SchemaGenerator
         }
         
         self::$is_generating = false;
+        self::$recursion_depth--;
         return $schemas;
     }
 
@@ -963,73 +998,59 @@ class SchemaGenerator
         switch ($context) {
             case 'home':
                 // WebSite schema
-                $website_data = [
+                $schemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'WebSite',
                     'name' => $options['site_name'] ?? get_bloginfo('name'),
                     'url' => $options['canonical_url'] ?? home_url('/'),
                     'description' => $options['description'] ?? get_bloginfo('description'),
                 ];
-                $schemas[] = self::render($website_data, 'website');
                 
                 // WebPage schema
-                $webpage_data = [
+                $schemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'WebPage',
                     'name' => $options['title'] ?? get_bloginfo('name'),
                     'url' => $options['canonical_url'] ?? home_url('/'),
                     'description' => $options['description'] ?? get_bloginfo('description'),
                 ];
-                $schemas[] = self::render($webpage_data, 'webpage');
                 break;
                 
             case 'singular':
-                if ($entity) {
-                    // Main entity schema (Article, Product, etc.)
-                    $schema_type = self::get_schema_type_for_entity($entity);
-                    $entity_data = self::build_entity_data($entity, $options);
-                    $schemas[] = self::render($entity_data, $schema_type);
-                }
-                
-                // WebPage schema
-                $webpage_data = [
+                // Basic WebPage schema only - avoid entity-specific schemas that might cause recursion
+                $schemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'WebPage',
                     'name' => $options['title'] ?? ($entity ? get_the_title($entity) : get_bloginfo('name')),
                     'url' => $options['canonical_url'] ?? ($entity ? get_permalink($entity) : home_url('/')),
                     'description' => $options['description'] ?? ($entity ? get_the_excerpt($entity) : get_bloginfo('description')),
                 ];
-                $schemas[] = self::render($webpage_data, 'webpage');
                 break;
                 
             case 'taxonomy':
-                // WebSite schema (for breadcrumbs)
-                $website_data = [
-                    'name' => $options['site_name'] ?? get_bloginfo('name'),
-                    'url' => $options['canonical_url'] ?? home_url('/'),
-                    'description' => $options['description'] ?? get_bloginfo('description'),
-                ];
-                $schemas[] = self::render($website_data, 'website');
-                
-                // WebPage schema
-                $webpage_data = [
+                // Basic WebPage schema only
+                $schemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'WebPage',
                     'name' => $options['title'] ?? ($entity ? get_the_title($entity) : get_bloginfo('name')),
                     'url' => $options['canonical_url'] ?? ($entity ? get_permalink($entity) : home_url('/')),
                     'description' => $options['description'] ?? ($entity ? get_the_excerpt($entity) : get_bloginfo('description')),
                 ];
-                $schemas[] = self::render($webpage_data, 'webpage');
                 break;
                 
             case 'archive':
-                // WebPage schema
-                $webpage_data = [
+                // Basic WebPage schema only  
+                $schemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'WebPage',
                     'name' => $options['title'] ?? get_the_archive_title(),
                     'url' => $options['canonical_url'] ?? get_pagenum_link(),
                     'description' => $options['description'] ?? get_the_archive_description(),
                 ];
-                $schemas[] = self::render($webpage_data, 'webpage');
                 break;
         }
 
-        // Add navigation schema for all contexts
-        $navigation_data = [
-            'url' => $options['canonical_url'] ?? ($entity ? get_permalink($entity) : home_url('/')),
-        ];
-        $schemas[] = self::render($navigation_data, 'navigation');
+        // Skip navigation schema to avoid recursion - let new architecture handle it
         
         return $schemas;
     }

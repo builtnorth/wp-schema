@@ -191,6 +191,7 @@ class Container
         $this->singleton('manager', function(Container $c) {
             return $c->get(SchemaManagerInterface::class);
         });
+        
     }
 }
 

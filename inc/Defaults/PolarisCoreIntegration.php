@@ -22,7 +22,7 @@ use BuiltNorth\Schema\API\WP_Schema;
 class PolarisCoreIntegration implements DataProviderInterface
 {
     private string $providerId = 'polaris_core';
-    private int $priority = 15;
+    private int $priority = 5;
     
     /**
      * Initialize the integration
@@ -150,7 +150,7 @@ class PolarisCoreIntegration implements DataProviderInterface
                 // Add geo coordinates
                 $coordinates = $this->buildGeoCoordinatesFromLocation($data['location']);
                 if ($coordinates && $coordinates->isValid()) {
-                    $organization->setGeoCoordinates($coordinates);
+                    $organization->setGeo($coordinates);
                 }
             }
         }
@@ -167,8 +167,8 @@ class PolarisCoreIntegration implements DataProviderInterface
         // Add business hours
         if (!empty($data['hours']['enabled'])) {
             $hours = $this->buildBusinessHours($data['hours']);
-            foreach ($hours as $hour) {
-                $organization->addOpeningHours($hour);
+            if (!empty($hours)) {
+                $organization->setOpeningHours($hours);
             }
         }
         

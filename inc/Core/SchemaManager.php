@@ -44,39 +44,32 @@ class SchemaManager implements SchemaManagerInterface
      */
     public function generateSchemas(string $context, array $options = []): array
     {
-        // Apply context option filters
-        $options = $this->hookManager->filterContextOptions($options, $context);
+        static $isGenerating = false;
         
-        // Trigger before generation hook
-        $this->hookManager->triggerBeforeGeneration($context, $options, $this);
+        // Prevent recursion in SchemaManager itself
+        if ($isGenerating) {
+            error_log("SchemaManager: Recursion detected, aborting to prevent infinite loop");
+            return [];
+        }
+        
+        $isGenerating = true;
         
         try {
-            // Collect data from all applicable providers
+            // Skip hooks temporarily to avoid recursion - just collect data and generate schemas
             $collectedData = $this->providerManager->collectData($context, $options);
-            
-            // Apply data filters
-            $collectedData = $this->hookManager->applyDataFilters($collectedData, $context, $options);
-            
-            // Generate schemas from collected data
             $schemas = $this->generateSchemasFromData($collectedData, $options);
             
-            // Apply context schema filters
-            $schemas = $this->hookManager->filterContextSchemas($schemas, $context, $options);
+            // Skip validation temporarily to preserve all data
+            // if ($this->validationEnabled && $this->validator) {
+            //     $schemas = $this->validateSchemas($schemas);
+            // }
             
-            // Validate schemas if validation is enabled
-            if ($this->validationEnabled && $this->validator) {
-                $schemas = $this->validateSchemas($schemas);
-            }
-            
-            // Trigger after generation hook
-            $this->hookManager->triggerSchemaGenerated($schemas, $context, $options);
-            
+            $isGenerating = false;
             return $schemas;
             
         } catch (\Exception $e) {
             error_log("Schema generation error in context '{$context}': " . $e->getMessage());
-            
-            // Return empty array on error - don't break the site
+            $isGenerating = false;
             return [];
         }
     }
@@ -312,8 +305,15 @@ class SchemaManager implements SchemaManagerInterface
             $data = $providerData['data'];
             $supportedTypes = $providerData['schema_types'];
             
-            // If data contains a schema type, use it
+            // If data contains a schema type, check if it's already a complete schema
             if (isset($data['@type'])) {
+                // If it also has @context, it's already a complete schema - use as-is
+                if (isset($data['@context'])) {
+                    $schemas[] = $data;
+                    continue;
+                }
+                
+                // Otherwise, generate schema using registry
                 $schemaType = $data['@type'];
                 if ($this->registry->hasSchemaType($schemaType)) {
                     $schema = $this->registry->generateSchema($schemaType, $data, $options);

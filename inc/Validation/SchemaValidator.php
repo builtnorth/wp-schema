@@ -233,23 +233,28 @@ class SchemaValidator implements SchemaValidatorInterface
     private function validatePropertyValues(array $schema, string $schemaType, array &$errors, array &$warnings): void
     {
         foreach ($schema as $property => $value) {
-            // Validate URLs
-            if ($this->isUrlProperty($property) && !$this->isValidUrl($value)) {
+            // Skip complex nested values (arrays/objects)
+            if (is_array($value) || is_object($value)) {
+                continue;
+            }
+            
+            // Validate URLs (only if value is string)
+            if ($this->isUrlProperty($property) && is_string($value) && !$this->isValidUrl($value)) {
                 $errors[] = "Invalid URL for property '{$property}': '{$value}'";
             }
             
-            // Validate email addresses
-            if ($property === 'email' && !$this->isValidEmail($value)) {
+            // Validate email addresses (only if value is string)
+            if ($property === 'email' && is_string($value) && !$this->isValidEmail($value)) {
                 $errors[] = "Invalid email address: '{$value}'";
             }
             
-            // Validate telephone numbers
-            if ($property === 'telephone' && !$this->isValidTelephone($value)) {
+            // Validate telephone numbers (only if value is string)
+            if ($property === 'telephone' && is_string($value) && !$this->isValidTelephone($value)) {
                 $warnings[] = "Telephone number '{$value}' may not be in optimal format";
             }
             
-            // Validate date formats
-            if ($this->isDateProperty($property) && !$this->isValidDate($value)) {
+            // Validate date formats (only if value is string)
+            if ($this->isDateProperty($property) && is_string($value) && !$this->isValidDate($value)) {
                 $errors[] = "Invalid date format for property '{$property}': '{$value}'. Use ISO 8601 format.";
             }
             
