@@ -104,6 +104,11 @@ class WordPressCoreProvider implements SchemaProviderInterface
             $piece['description'] = $description;
         }
         
+        // Add mainEntity relationship for organization pages
+        $main_entity_id = $this->get_main_entity_for_context($context);
+        if ($main_entity_id) {
+            $piece['mainEntity'] = ['@id' => $main_entity_id];
+        }
         
         return $piece;
     }
@@ -178,6 +183,122 @@ class WordPressCoreProvider implements SchemaProviderInterface
             default:
                 return get_bloginfo('description');
         }
+    }
+    
+    /**
+     * Get main entity @id for the current context
+     */
+    private function get_main_entity_for_context(string $context): ?string
+    {
+        switch ($context) {
+            case 'home':
+                // For homepage, the main entity is typically the organization
+                // Check if we have organization data (Polaris or other)
+                if ($this->has_organization_data()) {
+                    return home_url('/#organization');
+                }
+                break;
+                
+            case 'singular':
+                // For singular pages, the main entity could be:
+                // - Article (for blog posts)
+                // - Product (for WooCommerce products)
+                // - Event (for event posts)
+                // - Person (for author/team pages)
+                $post_type = get_post_type();
+                $post_id = get_the_ID();
+                
+                switch ($post_type) {
+                    case 'post':
+                        return get_permalink($post_id) . '#article';
+                    case 'product':
+                        return get_permalink($post_id) . '#product';
+                    case 'event':
+                        return get_permalink($post_id) . '#event';
+                    case 'person':
+                    case 'team':
+                        return get_permalink($post_id) . '#person';
+                    case 'page':
+                        // For pages, check if it's a special page type
+                        if ($this->is_about_page($post_id)) {
+                            return home_url('/#organization');
+                        }
+                        if ($this->is_contact_page($post_id)) {
+                            return home_url('/#organization');
+                        }
+                        break;
+                }
+                break;
+                
+            case 'archive':
+                // For archive pages, main entity is usually the website itself
+                return home_url('/#website');
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Check if organization data exists (from Polaris or other sources)
+     */
+    private function has_organization_data(): bool
+    {
+        // Check for Polaris organization data
+        $polaris_org = get_option('polaris_organization', []);
+        if (!empty($polaris_org['information']['name'])) {
+            return true;
+        }
+        
+        // Could check for other organization data sources here
+        return false;
+    }
+    
+    /**
+     * Check if this is an about page
+     */
+    private function is_about_page(int $post_id): bool
+    {
+        $post = get_post($post_id);
+        if (!$post) {
+            return false;
+        }
+        
+        $slug = $post->post_name;
+        $title = strtolower($post->post_title);
+        
+        $about_indicators = ['about', 'about-us', 'who-we-are', 'our-story', 'company'];
+        
+        foreach ($about_indicators as $indicator) {
+            if (strpos($slug, $indicator) !== false || strpos($title, $indicator) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if this is a contact page
+     */
+    private function is_contact_page(int $post_id): bool
+    {
+        $post = get_post($post_id);
+        if (!$post) {
+            return false;
+        }
+        
+        $slug = $post->post_name;
+        $title = strtolower($post->post_title);
+        
+        $contact_indicators = ['contact', 'contact-us', 'get-in-touch', 'reach-out'];
+        
+        foreach ($contact_indicators as $indicator) {
+            if (strpos($slug, $indicator) !== false || strpos($title, $indicator) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
 }

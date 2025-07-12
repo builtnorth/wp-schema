@@ -117,6 +117,14 @@ class PolarisOrganizationProvider implements SchemaProviderInterface
             $piece['sameAs'] = $same_as;
         }
         
+        // Add mainEntityOfPage for homepage context
+        if ($context === 'home' || is_front_page()) {
+            $piece['mainEntityOfPage'] = [
+                '@type' => 'WebPage',
+                '@id' => home_url('/#webpage')
+            ];
+        }
+        
         return $piece;
     }
     

@@ -18,12 +18,14 @@ class SchemaService
 {
     private ProviderManager $providerManager;
     private PieceAssembler $assembler;
+    private ?ValidationService $validator = null;
     private bool $initialized = false;
     
-    public function __construct()
+    public function __construct(?ValidationService $validator = null)
     {
         $this->providerManager = new ProviderManager();
         $this->assembler = new PieceAssembler();
+        $this->validator = $validator;
     }
     
     /**
@@ -105,7 +107,17 @@ class SchemaService
         }
         
         // Assemble into Yoast-style referenced graph
-        return $this->assembler->assemble($pieces);
+        $assembled = $this->assembler->assemble($pieces);
+        
+        // Optional validation in debug mode
+        if (WP_DEBUG && $this->validator && !empty($assembled)) {
+            $validation = $this->validator->validate_schema_array($assembled);
+            if (!$validation['valid']) {
+                error_log('WP Schema validation errors: ' . $this->validator->get_validation_summary($assembled));
+            }
+        }
+        
+        return $assembled;
     }
     
     /**
@@ -207,6 +219,24 @@ class SchemaService
     public function get_assembler(): PieceAssembler
     {
         return $this->assembler;
+    }
+    
+    /**
+     * Enable validation service
+     */
+    public function enable_validation(): void
+    {
+        if ($this->validator === null) {
+            $this->validator = new ValidationService();
+        }
+    }
+    
+    /**
+     * Get validation service
+     */
+    public function get_validator(): ?ValidationService
+    {
+        return $this->validator;
     }
     
     /**

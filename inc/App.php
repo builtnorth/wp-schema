@@ -1,11 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace BuiltNorth\Schema;
+
+use BuiltNorth\Schema\Core\SchemaService;
+use BuiltNorth\Schema\Core\OutputService;
 
 /**
  * Main App class for WP Schema package
  * 
- * Handles initialization and provides easy access to schema functionality
+ * Updated to use the new simplified architecture.
+ * Provides both new architecture and legacy compatibility methods.
+ * 
+ * @since 3.0.0
  */
 class App
 {
@@ -17,11 +25,25 @@ class App
     private static $instance = null;
 
     /**
-     * Schema generator instance
+     * Schema service instance
      *
-     * @var SchemaGenerator|null
+     * @var SchemaService
      */
-    private $schema_generator = null;
+    private SchemaService $schemaService;
+
+    /**
+     * Output service instance
+     *
+     * @var OutputService
+     */
+    private OutputService $outputService;
+
+    /**
+     * Initialization flag
+     *
+     * @var bool
+     */
+    private bool $initialized = false;
 
     /**
      * Get singleton instance
@@ -45,130 +67,68 @@ class App
      */
     private function init()
     {
-        // Initialize the schema generator with default integrations
-        SchemaGenerator::init();
+        if ($this->initialized) {
+            return;
+        }
+
+        // Initialize services
+        $this->schemaService = new SchemaService();
+        $this->outputService = new OutputService();
         
-        $this->schema_generator = new SchemaGenerator();
-        
-        // Schema output is now handled by the SEO plugin
-        // add_action('wp_head', [$this, 'output_schema']);
-        add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
+        // Initialize output service
+        $this->outputService->init();
         
         // Add admin hooks
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'init_admin']);
+        
+        // Plugin is ready
+        do_action('wp_schema_ready');
+        
+        $this->initialized = true;
     }
 
     /**
-     * Get schema generator
+     * Get schema service
      *
-     * @return SchemaGenerator
+     * @return SchemaService
      */
-    public function get_schema_generator()
+    public function get_schema_service(): SchemaService
     {
-        return $this->schema_generator;
+        return $this->schemaService;
+    }
+
+    /**
+     * Get output service
+     *
+     * @return OutputService
+     */
+    public function get_output_service(): OutputService
+    {
+        return $this->outputService;
     }
 
     /**
      * Generate schema for current page
      *
-     * @param string $type Schema type
      * @param array $options Generation options
-     * @return string JSON-LD schema markup
+     * @return array Schema pieces
      */
-    public function generate_schema($type = 'auto', $options = [])
+    public function generate_schema(array $options = []): array
     {
-        if ($type === 'auto') {
-            $type = $this->detect_schema_type();
-        }
-
-        $content = $this->get_current_content();
-        return SchemaGenerator::render($content, $type, $options);
+        return $this->schemaService->render_for_context(null, $options);
     }
 
     /**
-     * Auto-detect schema type for current page
+     * Check if app is initialized
      *
-     * @return string Schema type
+     * @return bool
      */
-    private function detect_schema_type()
+    public function is_initialized(): bool
     {
-        if (is_front_page()) {
-            return 'website';
-        }
-
-        if (is_single() || is_page()) {
-            $post_type = get_post_type();
-            
-            switch ($post_type) {
-                case 'post':
-                    return 'article';
-                case 'product':
-                    return 'product';
-                case 'faq':
-                    return 'faq';
-                case 'organization':
-                    return 'organization';
-                case 'person':
-                    return 'person';
-                default:
-                    return 'article';
-            }
-        }
-
-        if (is_archive()) {
-            return 'website';
-        }
-
-        return 'website';
+        return $this->initialized;
     }
 
-    /**
-     * Get current page content
-     *
-     * @return mixed Content for schema generation
-     */
-    private function get_current_content()
-    {
-        if (is_single() || is_page()) {
-            return get_the_ID();
-        }
-
-        if (is_front_page()) {
-            return [
-                'name' => get_bloginfo('name'),
-                'description' => get_bloginfo('description'),
-                'url' => get_site_url(),
-                'search_enabled' => true
-            ];
-        }
-
-        return '';
-    }
-
-    /**
-     * Output schema in wp_head
-     *
-     * @return void
-     */
-    public function output_schema()
-    {
-        $schema = $this->generate_schema();
-        
-        if (!empty($schema)) {
-            SchemaGenerator::output_schema_script($schema);
-        }
-    }
-
-    /**
-     * Enqueue assets
-     *
-     * @return void
-     */
-    public function enqueue_assets()
-    {
-        // Add any CSS/JS assets if needed
-    }
 
     /**
      * Add admin menu
@@ -207,92 +167,33 @@ class App
     }
 
     /**
-     * Generate schema for specific data
+     * Generate schema for current context (static helper)
      *
-     * @param mixed $content Content to generate schema from
-     * @param string $type Schema type
      * @param array $options Generation options
-     * @return string JSON-LD schema markup
+     * @return array Schema pieces
      */
-    public static function generate($content, $type = 'auto', $options = [])
+    public static function generate(array $options = []): array
     {
-        return self::instance()->generate_schema($type, $options);
+        return self::instance()->generate_schema($options);
     }
 
     /**
-     * Quick organization schema
+     * Get schema service (static helper)
      *
-     * @param array $data Organization data
-     * @return string JSON-LD schema markup
+     * @return SchemaService
      */
-    public static function organization($data)
+    public static function schema_service(): SchemaService
     {
-        return SchemaGenerator::render($data, 'organization');
+        return self::instance()->get_schema_service();
     }
 
     /**
-     * Quick local business schema
+     * Get output service (static helper)
      *
-     * @param array $data Business data
-     * @return string JSON-LD schema markup
+     * @return OutputService
      */
-    public static function local_business($data)
+    public static function output_service(): OutputService
     {
-        return SchemaGenerator::render($data, 'local_business');
-    }
-
-    /**
-     * Quick website schema
-     *
-     * @param array $data Website data
-     * @return string JSON-LD schema markup
-     */
-    public static function website($data)
-    {
-        return SchemaGenerator::render($data, 'website');
-    }
-
-    /**
-     * Quick article schema
-     *
-     * @param mixed $content Article content
-     * @return string JSON-LD schema markup
-     */
-    public static function article($content)
-    {
-        return SchemaGenerator::render($content, 'article');
-    }
-
-    /**
-     * Quick FAQ schema
-     *
-     * @param mixed $content FAQ content
-     * @return string JSON-LD schema markup
-     */
-    public static function faq($content)
-    {
-        return SchemaGenerator::render($content, 'faq');
-    }
-
-    /**
-     * Quick product schema
-     *
-     * @param array $data Product data
-     * @return string JSON-LD schema markup
-     */
-    public static function product($data)
-    {
-        return SchemaGenerator::render($data, 'product');
-    }
-
-    /**
-     * Quick person schema
-     *
-     * @param array $data Person data
-     * @return string JSON-LD schema markup
-     */
-    public static function person($data)
-    {
-        return SchemaGenerator::render($data, 'person');
+        return self::instance()->get_output_service();
     }
 } 

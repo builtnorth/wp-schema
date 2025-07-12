@@ -148,6 +148,7 @@ class PieceAssembler
         $priority_map = [
             'Organization' => 1,
             'LocalBusiness' => 1,
+            'Restaurant' => 1,
             'Corporation' => 1,
             'WebSite' => 2,
             'WebPage' => 3,
