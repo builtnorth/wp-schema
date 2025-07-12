@@ -5,8 +5,8 @@ namespace BuiltNorth\Schema\Defaults;
 /**
  * Core Blocks Integration
  * 
- * Provides automatic schema data generation for WordPress core Gutenberg blocks.
- * Note: Schema types are determined by post type, not by blocks.
+ * Provides schema data generation for WordPress core blocks.
+ * This integration focuses on navigation blocks and other core block types.
  */
 class CoreBlocksIntegration extends BaseIntegration
 {
@@ -18,241 +18,287 @@ class CoreBlocksIntegration extends BaseIntegration
     protected static $integration_name = 'core_blocks';
 
     /**
-     * Register WordPress hooks for core blocks integration
+     * Register WordPress hooks for Core Blocks integration
      *
      * @return void
      */
     protected static function register_hooks()
     {
-        // Provide schema data for core blocks
-        add_filter('wp_schema_data_for_block', [self::class, 'provide_block_data'], 10, 4);
+        // Provide navigation schema from core/navigation blocks
+        add_filter('wp_schema_context_schemas', [self::class, 'provide_navigation_schema'], 10, 3);
     }
 
     /**
-     * Provide schema data for core blocks
+     * Provide navigation schema from core/navigation blocks
      *
-     * @param array|null $custom_data Custom data
-     * @param array $block Block data
-     * @param string $schema_type Schema type
+     * @param array $schemas Existing schemas
+     * @param string $context Current context
      * @param array $options Generation options
-     * @return array|null Schema data
+     * @return array Modified schemas
      */
-    public static function provide_block_data($custom_data, $block, $schema_type, $options)
+    public static function provide_navigation_schema($schemas, $context, $options)
     {
-        $block_name = $block['blockName'] ?? '';
-        $attrs = $block['attrs'] ?? [];
-        $content = $block['innerContent'][0] ?? '';
-        
-        switch ($block_name) {
-            case 'core/paragraph':
-                return self::get_paragraph_data($content, $attrs, $schema_type);
-            case 'core/heading':
-                return self::get_heading_data($content, $attrs, $schema_type);
-            case 'core/list':
-                return self::get_list_data($content, $attrs, $schema_type);
-            case 'core/table':
-                return self::get_table_data($content, $attrs, $schema_type);
-            case 'core/code':
-                return self::get_code_data($content, $attrs, $schema_type);
-            case 'core/embed':
-                return self::get_embed_data($content, $attrs, $schema_type);
-            default:
-                return $custom_data;
-        }
-    }
-
-    /**
-     * Get paragraph block data
-     *
-     * @param string $content Block content
-     * @param array $attrs Block attributes
-     * @param string $schema_type Schema type
-     * @return array|null Paragraph data
-     */
-    private static function get_paragraph_data($content, $attrs, $schema_type)
-    {
-        // Only provide text data if the schema type supports it
-        if ($schema_type !== 'Article' && $schema_type !== 'WebPage' && $schema_type !== 'CreativeWork') {
-            return null;
-        }
-
-        $text = wp_strip_all_tags($content);
-        if (empty($text)) {
-            return null;
-        }
-
-        return [
-            'text' => $text,
-            'name' => $attrs['placeholder'] ?? 'Paragraph'
-        ];
-    }
-
-    /**
-     * Get heading block data
-     *
-     * @param string $content Block content
-     * @param array $attrs Block attributes
-     * @param string $schema_type Schema type
-     * @return array|null Heading data
-     */
-    private static function get_heading_data($content, $attrs, $schema_type)
-    {
-        // Only provide heading data if the schema type supports it
-        if ($schema_type !== 'Article' && $schema_type !== 'WebPage' && $schema_type !== 'CreativeWork') {
-            return null;
-        }
-
-        $level = $attrs['level'] ?? 2;
-        $text = wp_strip_all_tags($content);
-        
-        if (empty($text)) {
-            return null;
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('CoreBlocksIntegration::provide_navigation_schema() called');
         }
         
-        return [
-            'name' => $text,
-            'headline' => $text,
-            'text' => $text
-        ];
+        // Find navigation blocks in the current page/post
+        $navigation_blocks = self::find_navigation_blocks();
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('CoreBlocksIntegration::provide_navigation_schema() - found navigation blocks: ' . count($navigation_blocks));
+        }
+        
+        if (!empty($navigation_blocks)) {
+            foreach ($navigation_blocks as $nav_block) {
+                $nav_schema = self::build_navigation_schema($nav_block, $options);
+                if (!empty($nav_schema)) {
+                    $schemas[] = $nav_schema;
+                }
+            }
+        }
+
+        return $schemas;
     }
 
     /**
-     * Get list block data
+     * Find navigation blocks in current content
      *
-     * @param string $content Block content
-     * @param array $attrs Block attributes
-     * @param string $schema_type Schema type
-     * @return array|null List data
+     * @return array Array of navigation blocks
      */
-    private static function get_list_data($content, $attrs, $schema_type)
+    private static function find_navigation_blocks()
     {
-        // Only provide list data if the schema type supports it
-        if ($schema_type !== 'Article' && $schema_type !== 'WebPage' && $schema_type !== 'CreativeWork') {
-            return null;
+        $navigation_blocks = [];
+        
+        // Get current post/page content
+        if (is_singular()) {
+            $post = get_post();
+            if ($post) {
+                $blocks = parse_blocks($post->post_content);
+                $navigation_blocks = self::extract_navigation_blocks($blocks);
+            }
         }
-
-        // Parse list items from HTML
-        preg_match_all('/<li[^>]*>(.*?)<\/li>/s', $content, $matches);
-        $list_items = $matches[1] ?? [];
-
-        if (empty($list_items)) {
-            return null;
-        }
-
-        return [
-            'name' => 'List',
-            'text' => wp_strip_all_tags($content),
-            'listItem' => array_map('wp_strip_all_tags', $list_items)
-        ];
+        
+        // Also check for navigation in theme areas (header, footer, etc.)
+        $theme_blocks = self::get_theme_navigation_blocks();
+        $navigation_blocks = array_merge($navigation_blocks, $theme_blocks);
+        
+        return $navigation_blocks;
     }
 
     /**
-     * Get table block data
+     * Extract navigation blocks from parsed blocks
      *
-     * @param string $content Block content
-     * @param array $attrs Block attributes
-     * @param string $schema_type Schema type
-     * @return array|null Table data
+     * @param array $blocks Parsed blocks
+     * @return array Navigation blocks
      */
-    private static function get_table_data($content, $attrs, $schema_type)
+    private static function extract_navigation_blocks($blocks)
     {
-        // Only provide table data if the schema type supports it
-        if ($schema_type !== 'Table' && $schema_type !== 'WebPage' && $schema_type !== 'Article') {
-            return null;
+        $navigation_blocks = [];
+        
+        foreach ($blocks as $block) {
+            if ($block['blockName'] === 'core/navigation' || $block['blockName'] === 'wp:navigation') {
+                $navigation_blocks[] = $block;
+            }
+            
+            // Recursively check inner blocks
+            if (!empty($block['innerBlocks'])) {
+                $inner_nav_blocks = self::extract_navigation_blocks($block['innerBlocks']);
+                $navigation_blocks = array_merge($navigation_blocks, $inner_nav_blocks);
+            }
         }
-
-        $text = wp_strip_all_tags($content);
-        if (empty($text)) {
-            return null;
-        }
-
-        return [
-            'name' => $attrs['caption'] ?? 'Table',
-            'text' => $text
-        ];
+        
+        return $navigation_blocks;
     }
 
     /**
-     * Get code block data
+     * Get navigation blocks from theme areas
      *
-     * @param string $content Block content
-     * @param array $attrs Block attributes
-     * @param string $schema_type Schema type
-     * @return array|null Code data
+     * @return array Navigation blocks from theme
      */
-    private static function get_code_data($content, $attrs, $schema_type)
+    private static function get_theme_navigation_blocks()
     {
-        // Only provide code data if the schema type supports it
-        if ($schema_type !== 'SoftwareSourceCode' && $schema_type !== 'CreativeWork' && $schema_type !== 'Article') {
-            return null;
+        $navigation_blocks = [];
+        
+        // Check for navigation in header
+        if (has_block('core/navigation', 'header')) {
+            $header_blocks = parse_blocks(get_block_template_part('header'));
+            $nav_blocks = self::extract_navigation_blocks($header_blocks);
+            $navigation_blocks = array_merge($navigation_blocks, $nav_blocks);
         }
-
-        if (empty($content)) {
-            return null;
+        
+        // Check for navigation in footer
+        if (has_block('core/navigation', 'footer')) {
+            $footer_blocks = parse_blocks(get_block_template_part('footer'));
+            $nav_blocks = self::extract_navigation_blocks($footer_blocks);
+            $navigation_blocks = array_merge($navigation_blocks, $nav_blocks);
         }
-
-        return [
-            'name' => 'Code Block',
-            'text' => $content,
-            'programmingLanguage' => $attrs['language'] ?? 'text'
-        ];
+        
+        return $navigation_blocks;
     }
 
     /**
-     * Get embed block data
+     * Build navigation schema from block data
      *
-     * @param string $content Block content
-     * @param array $attrs Block attributes
-     * @param string $schema_type Schema type
-     * @return array|null Embed data
+     * @param array $nav_block Navigation block data
+     * @param array $options Generation options
+     * @return array Navigation schema
      */
-    private static function get_embed_data($content, $attrs, $schema_type)
+    private static function build_navigation_schema($nav_block, $options)
     {
-        // Only provide embed data if the schema type supports it
-        if ($schema_type !== 'MediaObject' && $schema_type !== 'VideoObject' && $schema_type !== 'CreativeWork' && $schema_type !== 'WebPage') {
-            return null;
+        $attrs = $nav_block['attrs'] ?? [];
+        $inner_blocks = $nav_block['innerBlocks'] ?? [];
+        
+        $navigation_schema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'SiteNavigationElement',
+            'name' => $attrs['ariaLabel'] ?? 'Main Navigation',
+        ];
+        
+        // Get navigation items from the referenced navigation menu
+        $nav_items = self::get_navigation_items_from_ref($nav_block);
+        
+        // Fallback to inner blocks if no ref found
+        if (empty($nav_items)) {
+            $nav_items = self::extract_navigation_items($inner_blocks);
         }
+        
+        if (!empty($nav_items)) {
+            $navigation_schema['hasPart'] = $nav_items;
+        }
+        
+        // Add URL if available
+        $url = $options['canonical_url'] ?? home_url('/');
+        if ($url) {
+            $navigation_schema['url'] = $url;
+        }
+        
+        return $navigation_schema;
+    }
 
+    /**
+     * Get navigation items from referenced navigation menu
+     *
+     * @param array $nav_block Navigation block data
+     * @return array Navigation items
+     */
+    private static function get_navigation_items_from_ref($nav_block)
+    {
+        $nav_items = [];
+        $attrs = $nav_block['attrs'] ?? [];
+        
+        // Try to get ref from attrs
+        $ref = null;
+        if (isset($attrs['ref']) && is_numeric($attrs['ref'])) {
+            $ref = (int)$attrs['ref'];
+        } elseif (isset($nav_block['innerHTML'])) {
+            // Fallback: regex the ref from the raw block HTML
+            if (preg_match('/"ref":\s*(\d+)/', $nav_block['innerHTML'], $matches)) {
+                $ref = (int)$matches[1];
+            }
+        }
+        
+        if ($ref) {
+            $nav_post = get_post($ref);
+            if ($nav_post && $nav_post->post_type === 'wp_navigation') {
+                $nav_blocks = parse_blocks($nav_post->post_content);
+                $nav_items = self::extract_navigation_items($nav_blocks);
+            }
+        }
+        
+        return $nav_items;
+    }
+
+    /**
+     * Extract navigation items from navigation block
+     *
+     * @param array $blocks Inner blocks of navigation
+     * @return array Navigation items
+     */
+    private static function extract_navigation_items($blocks)
+    {
+        $nav_items = [];
+        
+        foreach ($blocks as $block) {
+            if ($block['blockName'] === 'core/navigation-link') {
+                $nav_item = self::build_navigation_item($block);
+                if (!empty($nav_item)) {
+                    $nav_items[] = $nav_item;
+                }
+            }
+            
+            // Handle navigation submenu
+            if ($block['blockName'] === 'core/navigation-submenu') {
+                // Extract parent submenu link if present
+                if (isset($block['attrs']['label']) && isset($block['attrs']['url'])) {
+                    $submenu_item = [
+                        '@type' => 'WebPage',
+                        'name' => self::sanitize_text($block['attrs']['label']),
+                        'url' => esc_url($block['attrs']['url'])
+                    ];
+                    $nav_items[] = $submenu_item;
+                }
+                
+                // Recursively extract submenu children
+                $submenu_items = self::extract_navigation_items($block['innerBlocks'] ?? []);
+                if (!empty($submenu_items)) {
+                    $nav_items = array_merge($nav_items, $submenu_items);
+                }
+            }
+        }
+        
+        return $nav_items;
+    }
+
+    /**
+     * Build navigation item schema
+     *
+     * @param array $link_block Navigation link block
+     * @return array Navigation item schema
+     */
+    private static function build_navigation_item($link_block)
+    {
+        $attrs = $link_block['attrs'] ?? [];
+        $inner_content = $link_block['innerContent'] ?? [];
+        
         $url = $attrs['url'] ?? '';
-        $provider = $attrs['providerNameSlug'] ?? '';
-
-        if (empty($url)) {
-            return null;
+        $label = $attrs['label'] ?? '';
+        
+        // Extract label from inner content if not in attributes
+        if (empty($label) && !empty($inner_content)) {
+            $label = strip_tags(implode('', $inner_content));
         }
-
-        $embed_data = [
-            'name' => $attrs['title'] ?? 'Embedded Content',
-            'url' => $url
+        
+        if (empty($url) || empty($label)) {
+            return [];
+        }
+        
+        return [
+            '@type' => 'WebPage',
+            'name' => self::sanitize_text($label),
+            'url' => esc_url($url)
         ];
-
-        // Add specific properties based on provider
-        switch ($provider) {
-            case 'youtube':
-                $embed_data['@type'] = 'VideoObject';
-                $embed_data['embedUrl'] = $url;
-                break;
-            case 'vimeo':
-                $embed_data['@type'] = 'VideoObject';
-                $embed_data['embedUrl'] = $url;
-                break;
-            case 'twitter':
-                $embed_data['@type'] = 'CreativeWork';
-                break;
-            default:
-                $embed_data['@type'] = 'MediaObject';
-        }
-
-        return $embed_data;
     }
 
     /**
-     * Check if core blocks are available
+     * Sanitize text for schema output
+     *
+     * @param string $text Text to sanitize
+     * @return string Sanitized text
+     */
+    private static function sanitize_text($text)
+    {
+        return wp_strip_all_tags($text);
+    }
+
+    /**
+     * Check if integration is available
      *
      * @return bool
      */
     public static function is_available()
     {
-        return true; // Always available in WordPress
+        return true; // Always available since core blocks are always present
     }
 
     /**
@@ -262,7 +308,7 @@ class CoreBlocksIntegration extends BaseIntegration
      */
     public static function get_description()
     {
-        return 'Schema data for WordPress core Gutenberg blocks (paragraph, heading, list, table, code, embed, etc.)';
+        return 'Provides navigation schema from WordPress core navigation blocks.';
     }
 
     /**
@@ -272,6 +318,6 @@ class CoreBlocksIntegration extends BaseIntegration
      */
     public static function get_supported_schema_types()
     {
-        return ['Article', 'WebPage', 'CreativeWork', 'Table', 'SoftwareSourceCode', 'MediaObject', 'VideoObject'];
+        return ['navigation'];
     }
 } 

@@ -100,4 +100,6 @@ abstract class BaseIntegration
     {
         return DefaultIntegrations::is_integration_enabled(static::$integration_name);
     }
+
+
 } 

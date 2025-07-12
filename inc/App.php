@@ -50,8 +50,8 @@ class App
         
         $this->schema_generator = new SchemaGenerator();
         
-        // Add WordPress hooks
-        add_action('wp_head', [$this, 'output_schema']);
+        // Schema output is now handled by the SEO plugin
+        // add_action('wp_head', [$this, 'output_schema']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         
         // Add admin hooks

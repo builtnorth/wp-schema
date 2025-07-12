@@ -26,12 +26,13 @@ class SchemaGenerator
         // Register REST API routes
         add_action('rest_api_init', [self::class, 'register_rest_routes']);
         
-        // Add schema to head
-        add_action('wp_head', [self::class, 'output_schema']);
+        // Schema output is handled by the SEO plugin via SEOSchema.php
+        // add_action('wp_head', [self::class, 'output_schema']);
         
         // Add schema to REST API responses
         add_action('rest_api_init', [self::class, 'add_schema_to_rest']);
     }
+
     /**
      * Generate schema from various content sources with hook support
      *
@@ -174,12 +175,61 @@ class SchemaGenerator
      */
     public static function output_schema()
     {
-        if (is_singular()) {
-            global $post;
-            $schema = self::render_for_post($post->ID);
-            if (!empty($schema)) {
-                echo self::output_schema_script($schema);
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::output_schema() called - is_singular: ' . (is_singular() ? 'true' : 'false'));
+        }
+        
+        // Get current context
+        $context = self::get_current_context();
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::output_schema() - context: ' . $context);
+        }
+        
+        // Allow integrations to provide context-based schemas
+        $schemas = apply_filters('wp_schema_context_schemas', [], $context, []);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::output_schema() - schemas from integrations: ' . count($schemas));
+        }
+        
+        // If no integrations provided schemas, generate basic ones
+        if (empty($schemas)) {
+            $schemas = self::generate_basic_context_schemas($context, []);
+        }
+        
+        // Remove duplicates and empty schemas
+        $schemas = array_filter($schemas);
+        
+        // Ensure we only have one organization/business schema
+        $org_schemas = [];
+        $non_org_schemas = [];
+        
+        foreach ($schemas as $schema) {
+            if (isset($schema['@type']) && in_array($schema['@type'], ['Organization', 'LocalBusiness', 'HomeAndConstructionBusiness'])) {
+                $org_schemas[] = $schema;
+            } else {
+                $non_org_schemas[] = $schema;
             }
+        }
+        
+        // Keep only the first organization schema (usually the most complete one from PolarisCoreIntegration)
+        if (!empty($org_schemas)) {
+            $schemas = array_merge([$org_schemas[0]], $non_org_schemas);
+            
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('SchemaGenerator::output_schema() - kept organization schema: ' . print_r($org_schemas[0], true));
+            }
+        } else {
+            $schemas = $non_org_schemas;
+        }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::output_schema() - final schemas count: ' . count($schemas));
+        }
+        
+        if (!empty($schemas)) {
+            self::output_schemas($schemas);
         }
     }
 
@@ -192,6 +242,10 @@ class SchemaGenerator
      */
     public static function render_for_post($post_id, $options = [])
     {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::render_for_post() called for post ID: ' . $post_id);
+        }
+        
         // Allow plugins/themes to override schema type for this post
         $schema_type = apply_filters('wp_schema_type_for_post', null, $post_id, $options);
         
@@ -199,26 +253,44 @@ class SchemaGenerator
             // Use the utility class for post type detection
             $schema_type = \BuiltNorth\Schema\Utilities\GetSchemaTypeFromPostType::render($post_id);
         }
-
-        // Allow plugins/themes to provide custom data for this post
-        $custom_data = apply_filters('wp_schema_data_for_post', null, $post_id, $schema_type, $options);
         
-        if ($custom_data !== null) {
-            return self::generate_schema_by_type($schema_type, $custom_data, $options);
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::render_for_post() - schema type: ' . $schema_type);
         }
 
-        // Get post content for schema generation
-        $post = get_post($post_id);
-        if (!$post) {
+        // Get data from integrations
+        $data = apply_filters('wp_schema_data_for_post', null, $post_id, $schema_type, $options);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::render_for_post() - data from integrations: ' . ($data !== null ? 'provided' : 'not provided'));
+            if ($data !== null) {
+                error_log('SchemaGenerator::render_for_post() - integration data: ' . print_r($data, true));
+            }
+        }
+        
+        if ($data === null) {
+            // No integrations provided data, return empty schema
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('SchemaGenerator::render_for_post() - no data provided, returning empty schema');
+            }
             return [];
         }
 
-        // Generate schema using the post content
-        return self::render($post->post_content, $schema_type, $options);
+        // Generate schema based on type
+        $schema = self::generate_schema_by_type($schema_type, $data, $options);
+        
+        // Allow plugins/themes to modify final schema
+        $schema = apply_filters('wp_schema_final_schema', $schema, $post_id, $schema_type, $options);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::render_for_post() - final schema: ' . print_r($schema, true));
+        }
+        
+        return $schema;
     }
 
     /**
-     * Generate schema for a specific block with enhanced hook support
+     * Generate schema for a specific block
      *
      * @param array $block Block data
      * @param array $options Generation options
@@ -226,37 +298,37 @@ class SchemaGenerator
      */
     public static function render_for_block($block, $options = [])
     {
+        $block_name = $block['blockName'] ?? '';
+        $attrs = $block['attrs'] ?? [];
+        $content = $block['innerContent'][0] ?? '';
+
         // Allow plugins/themes to override schema type for this block
         $schema_type = apply_filters('wp_schema_type_for_block', null, $block, $options);
         
         if (!$schema_type) {
-            // Auto-detect schema type based on block name
+            // Detect schema type from block
             $schema_type = self::detect_schema_type_from_block($block);
         }
 
-        // Allow plugins/themes to provide custom data for this block
-        $custom_data = apply_filters('wp_schema_data_for_block', null, $block, $schema_type, $options);
+        // Get data from integrations
+        $data = apply_filters('wp_schema_data_for_block', null, $block, $schema_type, $options);
         
-        if ($custom_data !== null) {
-            return self::generate_schema_by_type($schema_type, $custom_data, $options);
+        if ($data === null) {
+            // No integrations provided data, return empty schema
+            return [];
         }
 
-        // Extract data from block content
-        $block_content = $block['innerContent'][0] ?? '';
-        $block_attrs = $block['attrs'] ?? [];
+        // Generate schema based on type
+        $schema = self::generate_schema_by_type($schema_type, $data, $options);
         
-        // Allow plugins/themes to modify block content and attributes
-        $block_content = apply_filters('wp_schema_block_content', $block_content, $block, $options);
-        $block_attrs = apply_filters('wp_schema_block_attributes', $block_attrs, $block, $options);
-
-        // Combine content and attributes for processing
-        $combined_data = array_merge(['content' => $block_content], $block_attrs);
+        // Allow plugins/themes to modify final schema
+        $schema = apply_filters('wp_schema_final_schema', $schema, $block, $schema_type, $options);
         
-        return self::render($combined_data, $schema_type, $options);
+        return $schema;
     }
 
     /**
-     * Detect schema type from block name and attributes
+     * Detect schema type from block
      *
      * @param array $block Block data
      * @return string Schema type
@@ -264,60 +336,33 @@ class SchemaGenerator
     private static function detect_schema_type_from_block($block)
     {
         $block_name = $block['blockName'] ?? '';
-        $block_attrs = $block['attrs'] ?? [];
+        $attrs = $block['attrs'] ?? [];
 
-        // Allow plugins/themes to provide custom detection logic
-        $detected_type = apply_filters('wp_schema_detect_type_from_block', null, $block_name, $block_attrs);
-        
-        if ($detected_type) {
-            return $detected_type;
+        // Check for schema type in block attributes
+        if (!empty($attrs['schemaType'])) {
+            return $attrs['schemaType'];
         }
 
-        // Default block-based detection
+        // Map common block names to schema types
         $block_schema_map = [
-            'core/faq' => 'FAQPage',
-            'core/testimonial' => 'Review',
-            'core/product' => 'Product',
-            'core/event' => 'Event',
-            'core/recipe' => 'Recipe',
-            'core/person' => 'Person',
-            'core/organization' => 'Organization',
-            'core/business' => 'LocalBusiness',
-            'core/service' => 'Service',
-            'core/review' => 'Review',
-            'core/rating' => 'AggregateRating',
+            'core/paragraph' => 'Article',
+            'core/heading' => 'Article',
+            'core/image' => 'ImageObject',
+            'core/video' => 'VideoObject',
+            'core/audio' => 'AudioObject',
+            'core/gallery' => 'ImageGallery',
+            'core/list' => 'ItemList',
+            'core/quote' => 'Quotation',
+            'core/pullquote' => 'Quotation',
+            'core/table' => 'Table',
+            'core/embed' => 'WebPage',
         ];
 
-        // Check for custom block patterns
-        foreach ($block_schema_map as $pattern => $schema_type) {
-            if (strpos($block_name, $pattern) !== false) {
-                return $schema_type;
-            }
-        }
-
-        // Check block attributes for schema hints
-        if (!empty($block_attrs['schemaType'])) {
-            return $block_attrs['schemaType'];
-        }
-
-        if (!empty($block_attrs['isReview'])) {
-            return 'Review';
-        }
-
-        if (!empty($block_attrs['isFAQ'])) {
-            return 'FAQPage';
-        }
-
-        if (!empty($block_attrs['isProduct'])) {
-            return 'Product';
-        }
-
-        // Default to Article for content blocks
-        return 'Article';
+        return $block_schema_map[$block_name] ?? 'Article';
     }
 
     /**
-     * Collect schema data from all blocks in a post
+     * Collect schemas from all blocks in a post
      *
      * @param int $post_id Post ID
      * @param array $options Generation options
@@ -330,24 +375,29 @@ class SchemaGenerator
             return [];
         }
 
-        // Parse blocks
+        // Parse blocks from post content
         $blocks = parse_blocks($post->post_content);
-        $schemas = [];
+        if (empty($blocks)) {
+            return [];
+        }
 
+        $schemas = [];
+        
         foreach ($blocks as $block) {
+            // Skip empty blocks
             if (empty($block['blockName'])) {
-                continue; // Skip non-block content
+                continue;
             }
 
-            // Allow plugins/themes to skip certain blocks
+            // Check if block should be processed
             $should_process = apply_filters('wp_schema_should_process_block', true, $block, $post_id, $options);
             if (!$should_process) {
                 continue;
             }
 
-            $block_schema = self::render_for_block($block, $options);
-            if (!empty($block_schema)) {
-                $schemas[] = $block_schema;
+            $schema = self::render_for_block($block, $options);
+            if (!empty($schema)) {
+                $schemas[] = $schema;
             }
         }
 
@@ -358,15 +408,54 @@ class SchemaGenerator
     }
 
     /**
-     * Output JSON-LD schema script tag
+     * Output schema as script tag
      *
-     * @param array $schema JSON-LD schema data
-     * @return void
+     * @param array $schema Schema data
+     * @return string HTML script tag
      */
     public static function output_schema_script($schema)
     {
-        if (!empty($schema)) {
-            echo '<script type="application/ld+json">' . json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>';
+        if (empty($schema)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('SchemaGenerator::output_schema_script() - empty schema provided');
+            }
+            return '';
+        }
+
+        $json = json_encode($schema, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('SchemaGenerator::output_schema_script() - JSON encoding error: ' . json_last_error_msg());
+            }
+            return '';
+        }
+        
+        $html = '<script type="application/ld+json">' . "\n" . $json . "\n" . '</script>' . "\n";
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::output_schema_script() - generated HTML: ' . $html);
+        }
+        
+        return $html;
+    }
+
+    /**
+     * Output multiple schemas as script tags
+     *
+     * @param array $schemas Array of schema data
+     * @return void
+     */
+    public static function output_schemas($schemas)
+    {
+        if (empty($schemas) || !is_array($schemas)) {
+            return;
+        }
+
+        foreach ($schemas as $schema) {
+            if (!empty($schema)) {
+                echo self::output_schema_script($schema);
+            }
         }
     }
 
@@ -376,20 +465,20 @@ class SchemaGenerator
      * @param string $content Content to analyze
      * @param string $type Schema type
      * @return array Detected patterns
-     * @deprecated Use hooks instead. This method is no longer supported.
      */
     public static function detect_patterns($content, $type)
     {
+        // This is a placeholder for pattern detection
+        // In the hook-based system, patterns are provided by integrations
         return [];
     }
 
     /**
-     * Get the best pattern for a schema type
+     * Get best pattern for schema type
      *
      * @param string $schema_type Schema type
      * @param array $detected_patterns Detected patterns
-     * @return string Best pattern to use
-     * @deprecated Use hooks instead. This method is no longer supported.
+     * @return string Best pattern
      */
     public static function get_best_pattern($schema_type, $detected_patterns)
     {
@@ -406,6 +495,7 @@ class SchemaGenerator
      */
     private static function generate_schema_by_type($type, $data, $options = [])
     {
+
         // Allow plugins/themes to override generation for specific types
         $generated_schema = apply_filters('wp_schema_generate_for_type', null, $type, $data, $options);
         if ($generated_schema !== null) {
@@ -420,6 +510,8 @@ class SchemaGenerator
                 return \BuiltNorth\Schema\Generators\LocalBusinessGenerator::generate($data, $options);
             case 'website':
                 return \BuiltNorth\Schema\Generators\WebSiteGenerator::generate($data, $options);
+            case 'webpage':
+                return \BuiltNorth\Schema\Generators\WebPageGenerator::generate($data, $options);
             case 'article':
                 return \BuiltNorth\Schema\Generators\ArticleGenerator::generate($data, $options);
             case 'product':
@@ -500,6 +592,444 @@ class SchemaGenerator
     public static function article($content)
     {
         return self::render($content, 'article');
+    }
+
+    /**
+     * Generate schemas for current context
+     *
+     * @param array $options Generation options
+     * @return array Array of schema data
+     */
+    public static function render_for_context($options = [])
+    {
+        // Get current context
+        $context = self::get_current_context();
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::render_for_context() - context: ' . $context);
+        }
+        
+        // Allow integrations to provide context-based schemas
+        $schemas = apply_filters('wp_schema_context_schemas', [], $context, $options);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::render_for_context() - schemas from integrations: ' . count($schemas));
+        }
+        
+        // If no integrations provided schemas, generate basic ones
+        if (empty($schemas)) {
+            $schemas = self::generate_basic_context_schemas($context, $options);
+        }
+        
+        // Remove duplicates and empty schemas
+        $schemas = array_filter($schemas);
+        
+        // Merge and consolidate schemas
+        $schemas = self::merge_and_consolidate_schemas($schemas);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::render_for_context() - final schemas count: ' . count($schemas));
+        }
+        
+        return $schemas;
+    }
+
+    /**
+     * Get current context
+     *
+     * @return string Context type
+     */
+    private static function get_current_context()
+    {
+        if (is_front_page()) {
+            return 'home';
+        } elseif (is_singular()) {
+            return 'singular';
+        } elseif (is_tax() || is_category() || is_tag()) {
+            return 'taxonomy';
+        } elseif (is_archive()) {
+            return 'archive';
+        } elseif (is_search()) {
+            return 'search';
+        } elseif (is_404()) {
+            return '404';
+        }
+        
+        return 'home';
+    }
+
+    /**
+     * Get current entity
+     *
+     * @return mixed Entity object or null
+     */
+    private static function get_current_entity()
+    {
+        if (is_singular()) {
+            return get_post();
+        } elseif (is_tax() || is_category() || is_tag()) {
+            return get_queried_object();
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get schema type for entity
+     *
+     * @param mixed $entity Entity object
+     * @return string Schema type
+     */
+    private static function get_schema_type_for_entity($entity)
+    {
+        if (is_a($entity, 'WP_Post')) {
+            $post_type = $entity->post_type;
+            
+            switch ($post_type) {
+                case 'post':
+                    return 'article';
+                case 'page':
+                    return 'webpage';
+                case 'product':
+                    return 'product';
+                default:
+                    return 'article';
+            }
+        } elseif (is_a($entity, 'WP_Term')) {
+            return 'webpage';
+        }
+        
+        return 'article';
+    }
+
+    /**
+     * Build entity data for schema generation
+     *
+     * @param mixed $entity Entity object
+     * @param array $options Generation options
+     * @return array Entity data
+     */
+    private static function build_entity_data($entity, $options)
+    {
+        if (is_a($entity, 'WP_Post')) {
+            return [
+                'name' => $options['title'] ?? get_the_title($entity),
+                'description' => $options['description'] ?? get_the_excerpt($entity),
+                'url' => $options['canonical_url'] ?? get_permalink($entity),
+                'datePublished' => get_the_date('c', $entity),
+                'dateModified' => get_the_modified_date('c', $entity),
+                'author' => get_the_author_meta('display_name', $entity->post_author),
+                'image' => self::get_featured_image_url($entity->ID),
+            ];
+        }
+        
+        return [];
+    }
+
+    /**
+     * Merge and consolidate schemas to eliminate duplicates and merge organization data
+     *
+     * @param array $schemas Array of schemas to merge
+     * @return array Consolidated schemas
+     */
+    private static function merge_and_consolidate_schemas($schemas)
+    {
+        $organization_schemas = [];
+        $other_schemas = [];
+        
+        // Separate organization schemas from other schemas
+        foreach ($schemas as $schema) {
+            if (isset($schema['@type']) && in_array($schema['@type'], ['Organization', 'LocalBusiness', 'HomeAndConstructionBusiness', 'FoodEstablishment'])) {
+                $organization_schemas[] = $schema;
+            } else {
+                $other_schemas[] = $schema;
+            }
+        }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::merge_and_consolidate_schemas() - organization schemas: ' . count($organization_schemas));
+            error_log('SchemaGenerator::merge_and_consolidate_schemas() - other schemas: ' . count($other_schemas));
+            foreach ($other_schemas as $schema) {
+                error_log('SchemaGenerator::merge_and_consolidate_schemas() - other schema type: ' . ($schema['@type'] ?? 'unknown'));
+            }
+        }
+        
+        // Merge organization schemas into one comprehensive schema
+        $merged_organization = null;
+        if (!empty($organization_schemas)) {
+            $merged_organization = self::merge_organization_schemas($organization_schemas);
+        }
+        
+        // Remove duplicate schemas of other types
+        $unique_schemas = self::remove_duplicate_schemas($other_schemas);
+        
+        // Combine merged organization with unique other schemas
+        $final_schemas = [];
+        if ($merged_organization) {
+            $final_schemas[] = $merged_organization;
+        }
+        $final_schemas = array_merge($final_schemas, $unique_schemas);
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::merge_and_consolidate_schemas() - merged ' . count($organization_schemas) . ' organization schemas into 1');
+            error_log('SchemaGenerator::merge_and_consolidate_schemas() - final schemas count: ' . count($final_schemas));
+        }
+        
+        return $final_schemas;
+    }
+
+    /**
+     * Merge multiple organization schemas into one comprehensive schema
+     *
+     * @param array $organization_schemas Array of organization schemas
+     * @return array Merged organization schema
+     */
+    private static function merge_organization_schemas($organization_schemas)
+    {
+        if (empty($organization_schemas)) {
+            return null;
+        }
+        
+        // Start with the first schema as the base
+        $merged = $organization_schemas[0];
+        
+        // Merge data from other organization schemas
+        for ($i = 1; $i < count($organization_schemas); $i++) {
+            $schema = $organization_schemas[$i];
+            
+            // Merge basic properties (prefer non-empty values)
+            $basic_props = ['name', 'description', 'url', 'logo'];
+            foreach ($basic_props as $prop) {
+                if (!empty($schema[$prop]) && (empty($merged[$prop]) || $merged[$prop] === get_bloginfo('name'))) {
+                    $merged[$prop] = $schema[$prop];
+                }
+            }
+            
+            // Merge contact information
+            if (!empty($schema['telephone']) && empty($merged['telephone'])) {
+                $merged['telephone'] = $schema['telephone'];
+            }
+            if (!empty($schema['email']) && empty($merged['email'])) {
+                $merged['email'] = $schema['email'];
+            }
+            
+            // Merge address (prefer more complete addresses)
+            if (!empty($schema['address']) && (empty($merged['address']) || count($schema['address']) > count($merged['address']))) {
+                $merged['address'] = $schema['address'];
+            }
+            
+            // Merge geo coordinates
+            if (!empty($schema['geo']) && empty($merged['geo'])) {
+                $merged['geo'] = $schema['geo'];
+            }
+            
+            // Merge social media (combine arrays)
+            if (!empty($schema['sameAs'])) {
+                if (empty($merged['sameAs'])) {
+                    $merged['sameAs'] = $schema['sameAs'];
+                } else {
+                    $merged['sameAs'] = array_unique(array_merge($merged['sameAs'], $schema['sameAs']));
+                }
+            }
+            
+            // Merge business hours (prefer more complete hours)
+            if (!empty($schema['openingHoursSpecification']) && (empty($merged['openingHoursSpecification']) || count($schema['openingHoursSpecification']) > count($merged['openingHoursSpecification']))) {
+                $merged['openingHoursSpecification'] = $schema['openingHoursSpecification'];
+            }
+            
+            // Merge other properties that might be useful
+            if (!empty($schema['potentialAction']) && empty($merged['potentialAction'])) {
+                $merged['potentialAction'] = $schema['potentialAction'];
+            }
+        }
+        
+        return $merged;
+    }
+
+    /**
+     * Remove duplicate schemas of the same type
+     *
+     * @param array $schemas Array of schemas
+     * @return array Unique schemas
+     */
+    private static function remove_duplicate_schemas($schemas)
+    {
+        $unique_schemas = [];
+        $seen_types = [];
+        
+        foreach ($schemas as $schema) {
+            $schema_type = $schema['@type'] ?? 'unknown';
+            
+            // For certain schema types, we want to keep only one
+            if (in_array($schema_type, ['WebSite', 'WebPage', 'SiteNavigationElement', 'BreadcrumbList'])) {
+                if (!in_array($schema_type, $seen_types)) {
+                    $unique_schemas[] = $schema;
+                    $seen_types[] = $schema_type;
+                } else {
+                    // If we've seen this type before, merge the best data
+                    $existing_index = array_search($schema_type, $seen_types);
+                    $unique_schemas[$existing_index] = self::merge_schema_data($unique_schemas[$existing_index], $schema);
+                }
+            } else {
+                // For other types, keep all
+                $unique_schemas[] = $schema;
+            }
+        }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SchemaGenerator::remove_duplicate_schemas() - input schemas: ' . count($schemas) . ', output schemas: ' . count($unique_schemas));
+            foreach ($unique_schemas as $schema) {
+                error_log('SchemaGenerator::remove_duplicate_schemas() - schema type: ' . ($schema['@type'] ?? 'unknown'));
+            }
+        }
+        
+        return $unique_schemas;
+    }
+
+    /**
+     * Merge schema data, preferring non-empty values
+     *
+     * @param array $existing Existing schema
+     * @param array $new New schema
+     * @return array Merged schema
+     */
+    private static function merge_schema_data($existing, $new)
+    {
+        $merged = $existing;
+        
+        foreach ($new as $key => $value) {
+            if ($key === '@context' || $key === '@type') {
+                continue; // Don't merge these
+            }
+            
+            if (empty($merged[$key]) && !empty($value)) {
+                $merged[$key] = $value;
+            } elseif (is_array($value) && is_array($merged[$key])) {
+                // For arrays, merge them
+                $merged[$key] = array_merge($merged[$key], $value);
+            }
+        }
+        
+        return $merged;
+    }
+
+    /**
+     * Generate basic context schemas without framework dependencies
+     *
+     * @param string $context Current context
+     * @param array $options Generation options
+     * @return array Array of schema data
+     */
+    private static function generate_basic_context_schemas($context, $options = [])
+    {
+        $schemas = [];
+        $entity = self::get_current_entity();
+        
+        // Basic organization schema using WordPress site info
+        $org_schema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => get_bloginfo('name'),
+            'url' => home_url('/'),
+        ];
+        
+        // Add description if available
+        $description = get_bloginfo('description');
+        if (!empty($description)) {
+            $org_schema['description'] = $description;
+        }
+        
+        $schemas[] = $org_schema;
+        
+        // Add context-specific schemas
+        switch ($context) {
+            case 'home':
+                // WebSite schema
+                $website_data = [
+                    'name' => $options['site_name'] ?? get_bloginfo('name'),
+                    'url' => $options['canonical_url'] ?? home_url('/'),
+                    'description' => $options['description'] ?? get_bloginfo('description'),
+                ];
+                $schemas[] = self::render($website_data, 'website');
+                
+                // WebPage schema
+                $webpage_data = [
+                    'name' => $options['title'] ?? get_bloginfo('name'),
+                    'url' => $options['canonical_url'] ?? home_url('/'),
+                    'description' => $options['description'] ?? get_bloginfo('description'),
+                ];
+                $schemas[] = self::render($webpage_data, 'webpage');
+                break;
+                
+            case 'singular':
+                if ($entity) {
+                    // Main entity schema (Article, Product, etc.)
+                    $schema_type = self::get_schema_type_for_entity($entity);
+                    $entity_data = self::build_entity_data($entity, $options);
+                    $schemas[] = self::render($entity_data, $schema_type);
+                }
+                
+                // WebPage schema
+                $webpage_data = [
+                    'name' => $options['title'] ?? ($entity ? get_the_title($entity) : get_bloginfo('name')),
+                    'url' => $options['canonical_url'] ?? ($entity ? get_permalink($entity) : home_url('/')),
+                    'description' => $options['description'] ?? ($entity ? get_the_excerpt($entity) : get_bloginfo('description')),
+                ];
+                $schemas[] = self::render($webpage_data, 'webpage');
+                break;
+                
+            case 'taxonomy':
+                // WebSite schema (for breadcrumbs)
+                $website_data = [
+                    'name' => $options['site_name'] ?? get_bloginfo('name'),
+                    'url' => $options['canonical_url'] ?? home_url('/'),
+                    'description' => $options['description'] ?? get_bloginfo('description'),
+                ];
+                $schemas[] = self::render($website_data, 'website');
+                
+                // WebPage schema
+                $webpage_data = [
+                    'name' => $options['title'] ?? ($entity ? get_the_title($entity) : get_bloginfo('name')),
+                    'url' => $options['canonical_url'] ?? ($entity ? get_permalink($entity) : home_url('/')),
+                    'description' => $options['description'] ?? ($entity ? get_the_excerpt($entity) : get_bloginfo('description')),
+                ];
+                $schemas[] = self::render($webpage_data, 'webpage');
+                break;
+                
+            case 'archive':
+                // WebPage schema
+                $webpage_data = [
+                    'name' => $options['title'] ?? get_the_archive_title(),
+                    'url' => $options['canonical_url'] ?? get_pagenum_link(),
+                    'description' => $options['description'] ?? get_the_archive_description(),
+                ];
+                $schemas[] = self::render($webpage_data, 'webpage');
+                break;
+        }
+
+        // Add navigation schema for all contexts
+        $navigation_data = [
+            'url' => $options['canonical_url'] ?? ($entity ? get_permalink($entity) : home_url('/')),
+        ];
+        $schemas[] = self::render($navigation_data, 'navigation');
+        
+        return $schemas;
+    }
+
+    /**
+     * Get featured image URL
+     *
+     * @param int $post_id Post ID
+     * @return string Image URL or empty string
+     */
+    private static function get_featured_image_url($post_id)
+    {
+        $image_id = get_post_thumbnail_id($post_id);
+        if ($image_id) {
+            return wp_get_attachment_image_url($image_id, 'full');
+        }
+        
+        return '';
     }
 
     /**

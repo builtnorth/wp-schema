@@ -56,9 +56,9 @@ class DefaultIntegrations
         // WordPress core post types integration
         WordPressCoreIntegration::init();
 
-        // Polaris Organization integration (global business data)
-        if (class_exists('Polaris\Schema\PolarisOrganizationIntegration')) {
-            \Polaris\Schema\PolarisOrganizationIntegration::init();
+        // Polaris Core integration (framework data)
+        if (class_exists('Polaris\App')) {
+            PolarisCoreIntegration::init();
         }
 
         // Polaris Blocks integration
@@ -116,10 +116,10 @@ class DefaultIntegrations
                 'available' => true,
                 'description' => 'Schema for WordPress core post types'
             ],
-            'polaris_organization' => [
-                'name' => 'Polaris Organization',
-                'available' => class_exists('Polaris\Schema\PolarisOrganizationIntegration'),
-                'description' => 'Organization and business schema data from Polaris organization settings (contact info, address, hours, social media, business type)'
+            'polaris_core' => [
+                'name' => 'Polaris Core',
+                'available' => PolarisCoreIntegration::is_available(),
+                'description' => 'Schema data from Polaris framework (organization settings, theme data, business information)'
             ],
             'polaris_blocks' => [
                 'name' => 'Polaris Blocks',
@@ -179,7 +179,7 @@ class DefaultIntegrations
             'core_blocks' => 'CoreBlocksIntegration',
 
             'wordpress_core' => 'WordPressCoreIntegration',
-            'polaris_organization' => 'PolarisOrganizationIntegration',
+            'polaris_core' => 'PolarisCoreIntegration',
             'polaris_blocks' => 'PolarisBlocksIntegration'
         ];
 
