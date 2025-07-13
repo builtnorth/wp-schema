@@ -94,6 +94,8 @@ class App
             'author' => 'BuiltNorth\\Schema\\Providers\\AuthorProvider',
             'article' => 'BuiltNorth\\Schema\\Providers\\ArticleProvider',
             'navigation' => 'BuiltNorth\\Schema\\Providers\\NavigationProvider',
+            'logo' => 'BuiltNorth\\Schema\\Providers\\LogoProvider',
+            'site_icon' => 'BuiltNorth\\Schema\\Providers\\SiteIconProvider',
         ];
         
         foreach ($core_providers as $name => $class) {
