@@ -90,7 +90,9 @@ class SchemaService
         
         // Collect pieces from provider classes
         try {
-            foreach ($this->providerManager->get_for_context($context, $options) as $provider) {
+            $providers = $this->providerManager->get_for_context($context, $options);
+            
+            foreach ($providers as $provider) {
                 $provider_pieces = $provider->get_pieces($context, $options);
                 if (is_array($provider_pieces)) {
                     $pieces = array_merge($pieces, $provider_pieces);

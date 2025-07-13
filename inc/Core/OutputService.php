@@ -16,9 +16,9 @@ class OutputService
 {
     private SchemaService $schemaService;
     
-    public function __construct()
+    public function __construct(SchemaService $schemaService = null)
     {
-        $this->schemaService = new SchemaService();
+        $this->schemaService = $schemaService ?: new SchemaService();
     }
     
     /**
@@ -26,7 +26,7 @@ class OutputService
      */
     public function init(): void
     {
-        add_action('wp_head', [$this, 'output_schema'], 2);
+        add_action('wp_head', [$this, 'output_schema'], 3);
     }
     
     /**

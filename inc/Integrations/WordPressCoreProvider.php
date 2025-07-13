@@ -82,6 +82,11 @@ class WordPressCoreProvider implements SchemaProviderInterface
             }
         }
         
+        // Add navigation reference if site navigation exists
+        if ($this->has_site_navigation()) {
+            $piece['hasPart'] = [['@id' => home_url('/#navigation')]];
+        }
+        
         return $piece;
     }
     
@@ -108,6 +113,12 @@ class WordPressCoreProvider implements SchemaProviderInterface
         $main_entity_id = $this->get_main_entity_for_context($context);
         if ($main_entity_id) {
             $piece['mainEntity'] = ['@id' => $main_entity_id];
+        }
+        
+        // Add breadcrumb reference if breadcrumb schema exists
+        // Note: External plugins can provide breadcrumb schema via hooks
+        if ($this->has_breadcrumb_schema()) {
+            $piece['breadcrumb'] = ['@id' => home_url('/#breadcrumb')];
         }
         
         return $piece;
@@ -296,6 +307,38 @@ class WordPressCoreProvider implements SchemaProviderInterface
             if (strpos($slug, $indicator) !== false || strpos($title, $indicator) !== false) {
                 return true;
             }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if breadcrumb schema is being provided
+     */
+    private function has_breadcrumb_schema(): bool
+    {
+        // Check if any breadcrumb schema will be provided via filters
+        // External plugins can hook into 'wp_schema_pieces' to provide breadcrumb schema
+        $test_pieces = apply_filters('wp_schema_pieces', [], 'singular', []);
+        
+        foreach ($test_pieces as $piece) {
+            if (isset($piece['@type']) && $piece['@type'] === 'BreadcrumbList') {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if site navigation schema is being provided
+     */
+    private function has_site_navigation(): bool
+    {
+        // Check if Core navigation provider can provide schema
+        if (class_exists('BuiltNorth\Schema\Integrations\CoreNavigationProvider')) {
+            $provider = new \BuiltNorth\Schema\Integrations\CoreNavigationProvider();
+            return $provider->can_provide('singular');
         }
         
         return false;

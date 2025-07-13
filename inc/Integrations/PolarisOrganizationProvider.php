@@ -32,7 +32,7 @@ class PolarisOrganizationProvider implements SchemaProviderInterface
         }
         
         return [
-            $this->build_organization_piece($org_data)
+            $this->build_organization_piece($org_data, $context)
         ];
     }
     
@@ -64,7 +64,7 @@ class PolarisOrganizationProvider implements SchemaProviderInterface
     /**
      * Build Organization schema piece
      */
-    private function build_organization_piece(array $org_data): array
+    private function build_organization_piece(array $org_data, string $context): array
     {
         $information = $org_data['information'] ?? [];
         $location = $org_data['location'] ?? [];
@@ -99,6 +99,12 @@ class PolarisOrganizationProvider implements SchemaProviderInterface
             $piece['address'] = $address;
         }
         
+        // Add geo coordinates
+        $geo = $this->build_geo_coordinates($location);
+        if (!empty($geo)) {
+            $piece['geo'] = $geo;
+        }
+        
         // Add logo
         $logo = $this->get_logo_data($brand);
         if (!empty($logo)) {
@@ -118,7 +124,7 @@ class PolarisOrganizationProvider implements SchemaProviderInterface
         }
         
         // Add mainEntityOfPage for homepage context
-        if ($context === 'home' || is_front_page()) {
+        if (($context && $context === 'home') || is_front_page()) {
             $piece['mainEntityOfPage'] = [
                 '@type' => 'WebPage',
                 '@id' => home_url('/#webpage')
@@ -189,6 +195,25 @@ class PolarisOrganizationProvider implements SchemaProviderInterface
         }
         
         return $address;
+    }
+    
+    /**
+     * Build geo coordinates schema
+     */
+    private function build_geo_coordinates(array $location): array
+    {
+        $lat = $location['location_lat'] ?? null;
+        $lng = $location['location_lng'] ?? null;
+        
+        if (empty($lat) || empty($lng)) {
+            return [];
+        }
+        
+        return [
+            '@type' => 'GeoCoordinates',
+            'latitude' => (float) $lat,
+            'longitude' => (float) $lng
+        ];
     }
     
     /**
