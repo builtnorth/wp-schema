@@ -4,90 +4,77 @@ declare(strict_types=1);
 
 namespace BuiltNorth\Schema;
 
-use BuiltNorth\Schema\Core\SchemaService;
-use BuiltNorth\Schema\Core\OutputService;
+use BuiltNorth\Schema\Services\ProviderRegistry;
+use BuiltNorth\Schema\Services\GraphBuilder;
+use BuiltNorth\Schema\Services\OutputService;
+use BuiltNorth\Schema\Services\ContextDetector;
+use BuiltNorth\Schema\Services\SchemaTypeRegistry;
 
 /**
  * Main App class for WP Schema package
  * 
- * Updated to use the new simplified architecture.
- * Provides both new architecture and legacy compatibility methods.
+ * Clean architecture with atomic schema pieces.
  * 
  * @since 3.0.0
  */
 class App
 {
-    /**
-     * Singleton instance
-     *
-     * @var App|null
-     */
-    private static $instance = null;
-
-    /**
-     * Schema service instance
-     *
-     * @var SchemaService
-     */
-    private SchemaService $schemaService;
-
-    /**
-     * Output service instance
-     *
-     * @var OutputService
-     */
-    private OutputService $outputService;
-
-    /**
-     * Initialization flag
-     *
-     * @var bool
-     */
+    private static ?App $instance = null;
     private bool $initialized = false;
+    
+    private ProviderRegistry $registry;
+    private GraphBuilder $graph_builder;
+    private OutputService $output_service;
+    private ContextDetector $context_detector;
+    private SchemaTypeRegistry $type_registry;
 
     /**
-     * Get singleton instance (without auto-initialization)
-     *
-     * @return App
+     * Get singleton instance
      */
-    public static function instance()
+    public static function instance(): App
     {
         if (is_null(self::$instance)) {
             self::$instance = new self();
         }
-
         return self::$instance;
     }
 
     /**
-     * Initialize the application (must be called explicitly)
-     *
-     * @return void
+     * Initialize the application
      */
-    public function init()
+    public function init(): void
     {
         if ($this->initialized) {
             return;
         }
 
         // Initialize services
-        $this->schemaService = new SchemaService();
-        $this->outputService = new OutputService($this->schemaService);
+        $this->registry = new ProviderRegistry();
+        $this->context_detector = new ContextDetector();
+        $this->type_registry = new SchemaTypeRegistry();
+        $this->graph_builder = new GraphBuilder($this->registry);
+        $this->output_service = new OutputService($this->graph_builder, $this->context_detector);
         
-        // Initialize services
-        $this->schemaService->init();
-        $this->outputService->init();
+        // Register core providers
+        $this->register_core_providers();
         
-        // Framework is ready
-        do_action('wp_schema_ready');
+        // Initialize output hooks
+        $this->output_service->init();
+        
+        // Allow plugins to register providers
+        do_action('wp_schema_register_providers', $this);
         
         $this->initialized = true;
+        
+        // Framework is ready
+        do_action('wp_schema_ready', $this);
+        
+        // Add filter to provide available schema types for UI
+        add_filter('wp_schema_available_types', [$this->type_registry, 'get_available_types']);
     }
 
     /**
      * Static initialization helper
-     *
-     * @return App
      */
     public static function initialize(): App
     {
@@ -97,98 +84,38 @@ class App
     }
 
     /**
-     * Get schema service
-     *
-     * @return SchemaService
+     * Register core providers
      */
-    public function get_schema_service(): SchemaService
+    private function register_core_providers(): void
     {
-        return $this->schemaService;
-    }
-
-    /**
-     * Get output service
-     *
-     * @return OutputService
-     */
-    public function get_output_service(): OutputService
-    {
-        return $this->outputService;
-    }
-
-    /**
-     * Generate schema for current page
-     *
-     * @param array $options Generation options
-     * @return array Schema pieces
-     */
-    public function generate_schema(array $options = []): array
-    {
-        if (!$this->initialized) {
-            trigger_error('App must be initialized before generating schema. Call init() first.', E_USER_WARNING);
-            return [];
-        }
+        $core_providers = [
+            'organization' => 'BuiltNorth\\Schema\\Providers\\OrganizationProvider',
+            'website' => 'BuiltNorth\\Schema\\Providers\\WebsiteProvider',
+            'author' => 'BuiltNorth\\Schema\\Providers\\AuthorProvider',
+            'article' => 'BuiltNorth\\Schema\\Providers\\ArticleProvider',
+        ];
         
-        return $this->schemaService->render_for_context(null, $options);
+        foreach ($core_providers as $name => $class) {
+            if (class_exists($class)) {
+                $this->registry->register($name, new $class());
+            }
+        }
     }
 
     /**
-     * Check if app is initialized
-     *
-     * @return bool
-     */
-    public function is_initialized(): bool
-    {
-        return $this->initialized;
-    }
-
-    /**
-     * Generate schema for current context (static helper)
-     *
-     * @param array $options Generation options
-     * @return array Schema pieces
-     */
-    public static function generate(array $options = []): array
-    {
-        return self::instance()->generate_schema($options);
-    }
-
-    /**
-     * Get schema service (static helper)
-     *
-     * @return SchemaService
-     */
-    public static function schema_service(): SchemaService
-    {
-        return self::instance()->get_schema_service();
-    }
-
-    /**
-     * Get output service (static helper)
-     *
-     * @return OutputService
-     */
-    public static function output_service(): OutputService
-    {
-        return self::instance()->get_output_service();
-    }
-
-    /**
-     * Simple helper to register schema providers
-     * This is the ONLY method plugin authors need to call
-     *
-     * @param string $name Provider name
-     * @param string $class_name Provider class name
-     * @return bool Success
+     * Register a provider (simple 2-line method for plugins)
      */
     public static function register_provider(string $name, string $class_name): bool
     {
-        // Allow registration during initialization (when wp_schema_ready fires)
         $instance = self::instance();
         
+        if (!class_exists($class_name)) {
+            return false;
+        }
+        
         try {
-            $provider_manager = $instance->get_schema_service()->get_provider_manager();
-            $provider_manager->register($name, $class_name);
+            $provider = new $class_name();
+            $instance->registry->register($name, $provider);
             return true;
         } catch (\Exception $e) {
             return false;
@@ -196,64 +123,34 @@ class App
     }
 
     /**
-     * Get schema type for a post type
-     *
-     * @param string $post_type WordPress post type
-     * @param int|null $post_id Optional post ID for SEO overrides
-     * @return string Schema.org type
+     * Get registry
      */
-    public static function get_schema_type_for_post_type(string $post_type, ?int $post_id = null): string
+    public function get_registry(): ProviderRegistry
     {
-        // Get the post type schema provider
-        $instance = self::instance();
-        if (!$instance->is_initialized()) {
-            $instance->init();
-        }
-        
-        $provider_manager = $instance->get_schema_service()->get_provider_manager();
-        
-        // Get registered providers and find the post type provider
-        $providers = $provider_manager->get_for_context('singular');
-        foreach ($providers as $provider) {
-            if ($provider instanceof \BuiltNorth\Schema\Integrations\PostTypeSchemaProvider) {
-                $mappings = $provider->get_post_type_mappings();
-                return $mappings[$post_type] ?? 'Article';
-            }
-        }
-        
-        // Fallback mapping
-        $basic_mappings = [
-            'post' => 'Article',
-            'page' => 'WebPage', 
-            'product' => 'Product',
-            'event' => 'Event',
-        ];
-        
-        return $basic_mappings[$post_type] ?? 'Article';
+        return $this->registry;
     }
 
     /**
-     * Get all post type to schema type mappings
-     *
-     * @return array Mapping of post types to schema types
+     * Get graph builder
      */
-    public static function get_post_type_mappings(): array
+    public function get_graph_builder(): GraphBuilder
     {
-        $instance = self::instance();
-        if (!$instance->is_initialized()) {
-            $instance->init();
-        }
-        
-        $provider_manager = $instance->get_schema_service()->get_provider_manager();
-        
-        // Get registered providers and find the post type provider
-        $providers = $provider_manager->get_for_context('singular');
-        foreach ($providers as $provider) {
-            if ($provider instanceof \BuiltNorth\Schema\Integrations\PostTypeSchemaProvider) {
-                return $provider->get_post_type_mappings();
-            }
-        }
-        
-        return [];
+        return $this->graph_builder;
     }
-} 
+
+    /**
+     * Check if initialized
+     */
+    public function is_initialized(): bool
+    {
+        return $this->initialized;
+    }
+
+    /**
+     * Get type registry
+     */
+    public function get_type_registry(): SchemaTypeRegistry
+    {
+        return $this->type_registry;
+    }
+}
