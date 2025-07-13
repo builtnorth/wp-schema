@@ -58,15 +58,58 @@ class NavigationProvider implements SchemaProviderInterface
             $piece = new SchemaPiece("#navigation-{$menu_slug}", 'SiteNavigationElement');
             $piece->set('name', $menu->name);
             
-            // Build menu items
+            // Build menu items - include ALL top-level items (even those with children)
             $schema_items = [];
+            
+            // Collect top-level items
             foreach ($menu_items as $item) {
-                if ($item->menu_item_parent == 0) { // Only top-level items
-                    $schema_items[] = [
-                        '@type' => 'SiteNavigationElement',
-                        'name' => $item->title,
-                        'url' => $item->url,
-                    ];
+                if ($item->menu_item_parent == 0 || $item->menu_item_parent == '0') { // Only top-level items
+                    // Skip items without titles
+                    $title = trim($item->title);
+                    if (empty($title)) {
+                        continue;
+                    }
+                    
+                    // Get the URL based on menu item type
+                    $url = '';
+                    
+                    switch ($item->type) {
+                        case 'custom':
+                            // Custom links have URL stored directly
+                            $url = $item->url;
+                            break;
+                        case 'post_type':
+                            // Regular post/page
+                            if ($item->object_id) {
+                                $url = get_permalink($item->object_id);
+                            }
+                            break;
+                        case 'post_type_archive':
+                            // Archive page (like Blog)
+                            if ($item->object) {
+                                $url = get_post_type_archive_link($item->object);
+                            }
+                            break;
+                        case 'taxonomy':
+                            // Category/tag/taxonomy term
+                            if ($item->object_id && $item->object) {
+                                $url = get_term_link((int) $item->object_id, $item->object);
+                            }
+                            break;
+                        default:
+                            // Fallback to stored URL
+                            $url = $item->url;
+                            break;
+                    }
+                    
+                    // Ensure URL is valid and not empty
+                    if (!is_wp_error($url) && !empty($url)) {
+                        $schema_items[] = [
+                            '@type' => 'SiteNavigationElement',
+                            'name' => $title,
+                            'url' => $url,
+                        ];
+                    }
                 }
             }
             
@@ -119,41 +162,93 @@ class NavigationProvider implements SchemaProviderInterface
         $items = [];
         
         foreach ($blocks as $block) {
-            if ($block['blockName'] === 'core/navigation-link') {
-                // Extract link data
-                $attrs = $block['attrs'] ?? [];
-                $label = $attrs['label'] ?? '';
-                $url = $attrs['url'] ?? '';
-                
-                if ($label && $url) {
+            // Handle various navigation block types
+            switch ($block['blockName']) {
+                case 'core/navigation-link':
+                    // Standard navigation link
+                    $attrs = $block['attrs'] ?? [];
+                    $label = $attrs['label'] ?? '';
+                    $url = $attrs['url'] ?? '';
+                    
+                    if ($label && $url) {
+                        $items[] = [
+                            '@type' => 'SiteNavigationElement',
+                            'name' => $label,
+                            'url' => $url,
+                        ];
+                    }
+                    break;
+                    
+                case 'core/navigation-submenu':
+                    // Submenu block - extract the parent item
+                    $attrs = $block['attrs'] ?? [];
+                    $label = $attrs['label'] ?? '';
+                    $url = $attrs['url'] ?? '';
+                    $type = $attrs['type'] ?? 'custom';
+                    $id = $attrs['id'] ?? null;
+                    
+                    // Get URL based on type
+                    if (empty($url) && $id) {
+                        switch ($type) {
+                            case 'post':
+                            case 'page':
+                                $url = get_permalink($id);
+                                break;
+                            case 'category':
+                            case 'tag':
+                            case 'taxonomy':
+                                $url = get_term_link($id);
+                                break;
+                        }
+                    }
+                    
+                    if ($label && $url && !is_wp_error($url)) {
+                        $items[] = [
+                            '@type' => 'SiteNavigationElement',
+                            'name' => $label,
+                            'url' => $url,
+                        ];
+                    }
+                    
+                    // Don't process innerBlocks for submenus - we only want top-level items
+                    break;
+                    
+                case 'core/home-link':
+                    // Home link
                     $items[] = [
                         '@type' => 'SiteNavigationElement',
-                        'name' => $label,
-                        'url' => $url,
+                        'name' => 'Home',
+                        'url' => home_url('/'),
                     ];
-                }
-            }
-            
-            // Check for page list block
-            if ($block['blockName'] === 'core/page-list') {
-                // Get pages
-                $pages = get_pages([
-                    'sort_column' => 'menu_order,post_title',
-                    'parent' => 0, // Only top-level pages
-                ]);
-                
-                foreach ($pages as $page) {
-                    $items[] = [
-                        '@type' => 'SiteNavigationElement',
-                        'name' => $page->post_title,
-                        'url' => get_permalink($page),
-                    ];
-                }
-            }
-            
-            // Recursively check inner blocks
-            if (!empty($block['innerBlocks'])) {
-                $items = array_merge($items, $this->extract_navigation_items($block['innerBlocks']));
+                    break;
+                    
+                case 'core/page-list':
+                    // Automatic page list
+                    $pages = get_pages([
+                        'sort_column' => 'menu_order,post_title',
+                        'parent' => 0, // Only top-level pages
+                    ]);
+                    
+                    foreach ($pages as $page) {
+                        $title = trim($page->post_title);
+                        if (empty($title)) {
+                            continue;
+                        }
+                        
+                        $items[] = [
+                            '@type' => 'SiteNavigationElement',
+                            'name' => $title,
+                            'url' => get_permalink($page),
+                        ];
+                    }
+                    break;
+                    
+                default:
+                    // For other blocks, check inner blocks
+                    if (!empty($block['innerBlocks'])) {
+                        $items = array_merge($items, $this->extract_navigation_items($block['innerBlocks']));
+                    }
+                    break;
             }
         }
         
