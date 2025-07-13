@@ -102,6 +102,7 @@ class PostTypeSchemaProvider implements SchemaProviderInterface
             return false;
         }
 
+
         return is_singular();
     }
 
@@ -139,27 +140,13 @@ class PostTypeSchemaProvider implements SchemaProviderInterface
      */
     private function get_schema_type_for_post($post): string
     {
-        // First check if polaris-seo has an override
-        if (function_exists('polaris_seo_get_post_schema_type')) {
-            $seo_override = polaris_seo_get_post_schema_type($post->ID);
-            if (!empty($seo_override)) {
-                return $seo_override;
-            }
-        }
+        // Get default schema type from post type mapping
+        $default_schema_type = $this->post_type_mappings[$post->post_type] ?? 'Article';
 
-        // Check post meta for SEO settings
-        $seo_settings = get_post_meta($post->ID, 'polaris_seo_settings', true);
-        if ($seo_settings) {
-            $seo_data = is_string($seo_settings) ? json_decode($seo_settings, true) : $seo_settings;
-            if (isset($seo_data['schema_type']) && !empty($seo_data['schema_type'])) {
-                return $seo_data['schema_type'];
-            }
-        }
+        // Allow plugins to override the default schema type for specific posts
+        $schema_type = apply_filters('wp_schema_post_type_override', $default_schema_type, $post->ID, $post->post_type, $post);
 
-        // Use post type mapping
-        $schema_type = $this->post_type_mappings[$post->post_type] ?? 'Article';
-
-        // Allow filtering
+        // Allow filtering of the final mapping (for general post type rules)
         return apply_filters('wp_schema_post_type_mapping', $schema_type, $post->post_type, $post);
     }
 
@@ -197,19 +184,17 @@ class PostTypeSchemaProvider implements SchemaProviderInterface
                 break;
         }
 
-        // Add SEO meta description if available
-        $seo_settings = get_post_meta($post->ID, 'polaris_seo_settings', true);
-        if ($seo_settings) {
-            $seo_data = is_string($seo_settings) ? json_decode($seo_settings, true) : $seo_settings;
-            if (isset($seo_data['meta_description']) && !empty($seo_data['meta_description'])) {
-                $schema_data['description'] = $seo_data['meta_description'];
-            }
-        }
-
-        // Fallback to excerpt
-        if (empty($schema_data['description']) && !empty($post->post_excerpt)) {
+        // Allow plugins to override schema description
+        $description = apply_filters('wp_schema_post_description', '', $post->ID, $post);
+        if (!empty($description)) {
+            $schema_data['description'] = $description;
+        } elseif (!empty($post->post_excerpt)) {
+            // Fallback to excerpt
             $schema_data['description'] = wp_strip_all_tags($post->post_excerpt);
         }
+
+        // Allow plugins to modify the complete schema data
+        $schema_data = apply_filters('wp_schema_post_data', $schema_data, $post, $schema_type);
 
         return $schema_data;
     }

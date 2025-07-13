@@ -68,6 +68,12 @@ class SchemaService
             'core_navigation',
             'BuiltNorth\\Schema\\Integrations\\CoreNavigationProvider'
         );
+        
+        // Post type schema mapping and SEO integration
+        $this->providerManager->register(
+            'post_type_schema',
+            'BuiltNorth\\Schema\\Integrations\\PostTypeSchemaProvider'
+        );
     }
     
     /**

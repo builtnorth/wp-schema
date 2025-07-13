@@ -194,4 +194,66 @@ class App
             return false;
         }
     }
+
+    /**
+     * Get schema type for a post type
+     *
+     * @param string $post_type WordPress post type
+     * @param int|null $post_id Optional post ID for SEO overrides
+     * @return string Schema.org type
+     */
+    public static function get_schema_type_for_post_type(string $post_type, ?int $post_id = null): string
+    {
+        // Get the post type schema provider
+        $instance = self::instance();
+        if (!$instance->is_initialized()) {
+            $instance->init();
+        }
+        
+        $provider_manager = $instance->get_schema_service()->get_provider_manager();
+        
+        // Get registered providers and find the post type provider
+        $providers = $provider_manager->get_for_context('singular');
+        foreach ($providers as $provider) {
+            if ($provider instanceof \BuiltNorth\Schema\Integrations\PostTypeSchemaProvider) {
+                $mappings = $provider->get_post_type_mappings();
+                return $mappings[$post_type] ?? 'Article';
+            }
+        }
+        
+        // Fallback mapping
+        $basic_mappings = [
+            'post' => 'Article',
+            'page' => 'WebPage', 
+            'product' => 'Product',
+            'event' => 'Event',
+        ];
+        
+        return $basic_mappings[$post_type] ?? 'Article';
+    }
+
+    /**
+     * Get all post type to schema type mappings
+     *
+     * @return array Mapping of post types to schema types
+     */
+    public static function get_post_type_mappings(): array
+    {
+        $instance = self::instance();
+        if (!$instance->is_initialized()) {
+            $instance->init();
+        }
+        
+        $provider_manager = $instance->get_schema_service()->get_provider_manager();
+        
+        // Get registered providers and find the post type provider
+        $providers = $provider_manager->get_for_context('singular');
+        foreach ($providers as $provider) {
+            if ($provider instanceof \BuiltNorth\Schema\Integrations\PostTypeSchemaProvider) {
+                return $provider->get_post_type_mappings();
+            }
+        }
+        
+        return [];
+    }
 } 
