@@ -20,28 +20,48 @@ class SchemaTypeRegistry
     {
         // Comprehensive list of schema.org types commonly used
         $types = [
+            // Content Types
             ['label' => 'Article', 'value' => 'Article'],
             ['label' => 'BlogPosting', 'value' => 'BlogPosting'],
             ['label' => 'NewsArticle', 'value' => 'NewsArticle'],
             ['label' => 'WebPage', 'value' => 'WebPage'],
+            
+            // Page Types
+            ['label' => 'Contact Page', 'value' => 'ContactPage'],
+            ['label' => 'About Page', 'value' => 'AboutPage'],
+            ['label' => 'Privacy Policy Page', 'value' => 'PrivacyPolicyPage'],
+            ['label' => 'Terms of Service Page', 'value' => 'TermsOfServicePage'],
+            ['label' => 'Checkout Page', 'value' => 'CheckoutPage'],
+            ['label' => 'Profile Page', 'value' => 'ProfilePage'],
+            ['label' => 'FAQ Page', 'value' => 'FAQPage'],
+            ['label' => 'Collection Page', 'value' => 'CollectionPage'],
+            ['label' => 'Media Gallery', 'value' => 'MediaGallery'],
+            
+            // Commerce
             ['label' => 'Product', 'value' => 'Product'],
-            ['label' => 'Event', 'value' => 'Event'],
-            ['label' => 'Recipe', 'value' => 'Recipe'],
-            ['label' => 'LocalBusiness', 'value' => 'LocalBusiness'],
-            ['label' => 'Restaurant', 'value' => 'Restaurant'],
             ['label' => 'Service', 'value' => 'Service'],
             ['label' => 'Review', 'value' => 'Review'],
+            
+            // Business
+            ['label' => 'LocalBusiness', 'value' => 'LocalBusiness'],
+            ['label' => 'Restaurant', 'value' => 'Restaurant'],
+            ['label' => 'Organization', 'value' => 'Organization'],
+            
+            // Media
+            ['label' => 'VideoObject', 'value' => 'VideoObject'],
+            ['label' => 'ImageObject', 'value' => 'ImageObject'],
+            ['label' => 'AudioObject', 'value' => 'AudioObject'],
+            
+            // Other
+            ['label' => 'Event', 'value' => 'Event'],
+            ['label' => 'Recipe', 'value' => 'Recipe'],
             ['label' => 'Book', 'value' => 'Book'],
             ['label' => 'Movie', 'value' => 'Movie'],
             ['label' => 'MusicRecording', 'value' => 'MusicRecording'],
-            ['label' => 'FAQPage', 'value' => 'FAQPage'],
             ['label' => 'Person', 'value' => 'Person'],
-            ['label' => 'Organization', 'value' => 'Organization'],
             ['label' => 'JobPosting', 'value' => 'JobPosting'],
             ['label' => 'Course', 'value' => 'Course'],
             ['label' => 'SoftwareApplication', 'value' => 'SoftwareApplication'],
-            ['label' => 'VideoObject', 'value' => 'VideoObject'],
-            ['label' => 'ImageObject', 'value' => 'ImageObject'],
             ['label' => 'Place', 'value' => 'Place'],
             ['label' => 'CreativeWork', 'value' => 'CreativeWork'],
         ];
