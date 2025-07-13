@@ -11,7 +11,7 @@ use BuiltNorth\Schema\Graph\SchemaPiece;
  * Page Type Provider
  * 
  * Provides specialized page type schemas (ContactPage, AboutPage, etc.)
- * when selected via schema type override (e.g., from polaris-seo).
+ * when selected via schema type override.
  * 
  * @since 3.0.0
  */

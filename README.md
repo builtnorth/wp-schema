@@ -1,6 +1,6 @@
 # WP Schema
 
-A simple, WordPress-first schema generation framework inspired by Yoast's approach with provider-based architecture.
+A comprehensive, WordPress-first schema generation framework with a clean provider-based architecture.
 
 ## Architecture
 
@@ -8,31 +8,41 @@ WP Schema follows a clean, modular architecture:
 
 - **Core Framework**: Provider registration, schema assembly, and output management
 - **Provider System**: Hook-based registration for extensible schema generation
-- **Yoast-Style References**: Clean schema graphs with @id references and deduplication
-- **WordPress Integration**: Seamless integration with WordPress core data
+- **Clean References**: Schema graphs with @id references and automatic deduplication
+- **WordPress Integration**: Deep integration with WordPress core data and features
+- **@graph Format**: Modern JSON-LD output using Google's recommended @graph structure
 
 ## Features
 
 - **Simple Provider Interface**: Easy to implement schema providers
-- **Registration Order Priority**: Predictable schema ordering without complex priority systems
-- **Filter Fallback**: Simple filter hooks for basic plugin compatibility
-- **Reference Resolution**: Yoast-style @id references for clean schema graphs
-- **WordPress Core Integration**: Built-in providers for WebSite, WebPage, and Navigation
-- **Organization Data**: Polaris Framework integration for business information
+- **Comprehensive Coverage**: Built-in providers for all major WordPress contexts
+- **Registration Priority System**: Predictable schema ordering with priority-based registration
+- **Flexible Filtering**: Multiple filter hooks for customization at every level
+- **Reference Resolution**: Clean @id references for building complex schema graphs
+- **WordPress Core Integration**: Automatic schema for posts, pages, archives, media, and more
+- **Type Registry**: Centralized management of schema.org types with UI support
 
 ## Installation
 
 ```bash
-# Via Composer (if published)
+# Via Composer
 composer require builtnorth/wp-schema
-
-# Or include in your WordPress project
-require_once 'path/to/wp-schema/wp-schema.php';
 ```
 
 ## Quick Start
 
-The package auto-initializes and provides schema via HTML `<script type="application/ld+json">` tags.
+Initialize the framework in your plugin or theme:
+
+```php
+// Initialize wp-schema
+if (class_exists('BuiltNorth\Schema\App')) {
+	add_action('init', function() {
+		BuiltNorth\Schema\App::initialize();
+	});
+}
+```
+
+Once initialized, the framework automatically outputs schema via HTML `<script type="application/ld+json">` tags in the document head.
 
 ### For Plugin Developers
 
@@ -64,6 +74,19 @@ add_filter('wp_schema_pieces', function($pieces, $context, $options) {
 }, 10, 3);
 ```
 
+### Schema Type Override
+
+Override the schema type for specific posts:
+
+```php
+add_filter('wp_schema_post_type_override', function($type, $post_id, $post_type, $post) {
+    if (get_post_meta($post_id, 'page_type', true) === 'contact') {
+        return 'ContactPage';
+    }
+    return $type;
+}, 10, 4);
+```
+
 ## Provider Interface
 
 Create schema providers by implementing `SchemaProviderInterface`:
@@ -82,7 +105,7 @@ class MySchemaProvider implements SchemaProviderInterface
         // Return true if this provider can generate schema for the current context
         return $context === 'singular' && get_post_type() === 'my_post_type';
     }
-    
+
     public function get_pieces(string $context, array $options = []): array
     {
         // Return array of schema pieces
@@ -94,7 +117,7 @@ class MySchemaProvider implements SchemaProviderInterface
             ]
         ];
     }
-    
+
     public function get_priority(): int
     {
         // Return priority for ordering (lower = higher priority)
@@ -105,51 +128,76 @@ class MySchemaProvider implements SchemaProviderInterface
 
 ## Built-in Providers
 
-### WordPress Core Providers
+### Core Content Providers
 
-- **WordPressCoreProvider**: WebSite and WebPage schema from WordPress core data
-- **CoreNavigationProvider**: SiteNavigationElement schema from WordPress navigation
+- **OrganizationProvider**: Organization/LocalBusiness schema with support for all organization types
+- **WebsiteProvider**: WebSite schema with site-wide metadata
+- **ArticleProvider**: Article, BlogPosting, and NewsArticle schema for posts
+- **AuthorProvider**: Person schema for post authors
+- **NavigationProvider**: SiteNavigationElement schema from WordPress menus
 
-### Polaris Integration Providers
+### Page Type Providers
 
-- **PolarisOrganizationProvider**: Restaurant/Organization schema from Polaris Framework data
+- **PageTypeProvider**: Specialized page types (ContactPage, AboutPage, FAQPage, etc.)
+- **ArchiveProvider**: CollectionPage and ItemList for category, tag, and date archives
+- **SearchResultsProvider**: SearchResultsPage with search action and results
+- **MediaProvider**: ImageObject, VideoObject, and AudioObject for attachments
+
+### Enhancement Providers
+
+- **CommentProvider**: Comment schema added to posts and pages
+- **LogoProvider**: Organization logo from WordPress site logo/custom logo
+- **SiteIconProvider**: Site icon/favicon added to WebSite schema
 
 ## Schema Output
 
-The package outputs clean, Yoast-style schema with proper relationships:
+The package outputs clean schema with proper relationships using the @graph format:
 
 ```json
-[
-  {
-    "@type": "Restaurant",
-    "@id": "https://example.com/#organization",
-    "name": "My Restaurant",
-    "address": { ... }
-  },
-  {
-    "@type": "WebSite", 
-    "@id": "https://example.com/#website",
-    "name": "My Site",
-    "hasPart": [{"@id": "https://example.com/#navigation"}]
-  },
-  {
-    "@type": "WebPage",
-    "@id": "https://example.com/page/#webpage", 
-    "name": "Page Title",
-    "isPartOf": {"@id": "https://example.com/#website"},
-    "breadcrumb": {"@id": "https://example.com/#breadcrumb"}
-  },
-  {
-    "@type": "SiteNavigationElement",
-    "@id": "https://example.com/#navigation",
-    "name": "Primary Navigation"
-  },
-  {
-    "@type": "BreadcrumbList",
-    "@id": "https://example.com/#breadcrumb", 
-    "itemListElement": [ ... ]
-  }
-]
+{
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "Organization",
+            "@id": "https://example.com/#organization",
+            "name": "My Organization",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://example.com/logo.png"
+            }
+        },
+        {
+            "@type": "WebSite",
+            "@id": "https://example.com/#website",
+            "name": "My Site",
+            "publisher": { "@id": "https://example.com/#organization" },
+            "image": {
+                "@type": "ImageObject",
+                "url": "https://example.com/icon.png"
+            }
+        },
+        {
+            "@type": "Article",
+            "@id": "https://example.com/post/#article",
+            "headline": "Article Title",
+            "author": { "@id": "https://example.com/#author-1" },
+            "publisher": { "@id": "https://example.com/#organization" },
+            "comment": [
+                {
+                    "@type": "Comment",
+                    "author": { "@type": "Person", "name": "Commenter" },
+                    "text": "Great article!"
+                }
+            ]
+        },
+        {
+            "@type": "Person",
+            "@id": "https://example.com/#author-1",
+            "name": "Author Name",
+            "url": "https://example.com/author/authorname/"
+        }
+    ]
+}
 ```
 
 ## Contexts
@@ -157,32 +205,47 @@ The package outputs clean, Yoast-style schema with proper relationships:
 The system recognizes these contexts for schema generation:
 
 - `home` - Front page
-- `singular` - Individual posts/pages  
-- `archive` - Archive pages
-- `search` - Search results
+- `singular` - Individual posts/pages
+- `archive` - Archive pages (categories, tags, dates, authors, custom taxonomies)
+- `search` - Search results pages
 - `404` - 404 error pages
+- `attachment` - Media/attachment pages
 
-## Future Roadmap
+## Available Hooks
 
-### wp-schema-integrations Package (Planned)
+### Actions
 
-We plan to create a separate `wp-schema-integrations` package that will provide schema for popular WordPress plugins that don't integrate directly with wp-schema:
+- `wp_schema_register_providers` - Register custom providers
+- `wp_schema_ready` - Fired when framework is fully initialized
+- `wp_schema_before_output` - Before schema is output
+- `wp_schema_after_output` - After schema is output
 
-**Planned Integrations:**
-- **WooCommerce** - Product, Review, and Store schema
-- **Advanced Custom Fields** - Schema from ACF field data
-- **Contact Form 7** - ContactPoint schema for contact forms
-- **Gravity Forms** - Form and ContactPoint schema
-- **The Events Calendar** - Event schema
-- **Easy Digital Downloads** - Product schema for digital products
-- **WP Recipe Maker** - Recipe schema
-- **Yoast SEO** - Compatibility layer
+### Filters
 
-This approach keeps the core framework clean while providing comprehensive coverage for popular plugins.
+- `wp_schema_pieces` - Modify final schema pieces array
+- `wp_schema_graph` - Modify complete schema graph before output
+- `wp_schema_piece_{type}` - Modify specific schema piece (e.g., `wp_schema_piece_article`)
+- `wp_schema_post_type_override` - Override schema type for posts/pages
+- `wp_schema_available_types` - Modify available schema types for UI
+- `wp_schema_organization_type_mapping` - Customize organization type mappings
+- `wp_schema_organization_data` - Modify organization schema data
+- `wp_schema_website_data` - Modify website schema data
+- `wp_schema_article_data` - Modify article schema data
+- `wp_schema_archive_data` - Modify archive schema data
+- `wp_schema_search_results_data` - Modify search results schema data
+- `wp_schema_media_data` - Modify media schema data
+- `wp_schema_page_type_data` - Modify page type schema data
+- `wp_schema_context` - Override detected context
+- `wp_schema_output_enabled` - Enable/disable schema output
 
-**Plugin-Specific Integrations:**
-- **Polaris Blocks** - Schema providers built into the polaris-blocks plugin itself
-- **Custom Plugins** - Developers can build schema providers directly into their own plugins
+### Schema Type Registry
+
+Access available schema types for UI elements:
+
+```php
+$types = apply_filters('wp_schema_available_types', []);
+// Returns array of ['label' => 'Article', 'value' => 'Article'] items
+```
 
 ## Requirements
 
@@ -205,3 +268,11 @@ GPL-2.0-or-later
 ## Support
 
 For support and questions, please open an issue on GitHub.
+
+## Disclaimer
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+The schema markup generated by this package is not guaranteed to result in rich snippets or enhanced search results. Search engines determine rich snippet eligibility based on many factors including content quality, site authority, and their own algorithms. Always validate your schema output using official testing tools and follow search engine guidelines.
+
+This package is currently in beta (v0.2.0-beta) and has not been fully tested across all WordPress configurations and use cases. The generated schema may not be accurate or complete for all scenarios. Users are responsible for validating and testing the schema output for their specific implementations.

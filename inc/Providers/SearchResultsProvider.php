@@ -272,6 +272,15 @@ class SearchResultsProvider implements SchemaProviderInterface
     private function get_current_url(): string
     {
         global $wp;
+        
+        // For search pages, we need to include the query parameters
+        if (is_search()) {
+            $search_query = get_search_query();
+            if ($search_query) {
+                return home_url(add_query_arg(['s' => $search_query], $wp->request));
+            }
+        }
+        
         return home_url(add_query_arg([], $wp->request));
     }
 }
