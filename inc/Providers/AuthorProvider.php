@@ -23,7 +23,7 @@ class AuthorProvider implements SchemaProviderInterface
         }
         
         $post = get_queried_object();
-        return $post && isset($post->post_author);
+        return $post && isset($post->post_author) && $post->post_author > 0;
     }
     
     public function get_pieces(string $context): array
