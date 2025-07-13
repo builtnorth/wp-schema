@@ -55,24 +55,26 @@ class OutputService
      */
     private function output_graph($graph): void
     {
-        foreach ($graph->get_pieces() as $piece) {
-            $this->output_piece($piece);
-        }
-    }
-    
-    /**
-     * Output single piece as JSON-LD
-     */
-    private function output_piece($piece): void
-    {
-        $data = $piece->to_array();
+        $pieces = $graph->get_pieces();
         
-        // Add schema.org context
-        if (!isset($data['@context'])) {
-            $data['@context'] = 'https://schema.org';
+        if (empty($pieces)) {
+            return;
         }
         
-        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // Build @graph array with all pieces
+        $graph_data = [
+            '@context' => 'https://schema.org',
+            '@graph' => []
+        ];
+        
+        foreach ($pieces as $piece) {
+            $piece_data = $piece->to_array();
+            // Remove individual @context from pieces
+            unset($piece_data['@context']);
+            $graph_data['@graph'][] = $piece_data;
+        }
+        
+        $json = json_encode($graph_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         
         if ($json) {
             echo '<script type="application/ld+json">' . $json . '</script>' . PHP_EOL;

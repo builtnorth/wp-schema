@@ -93,6 +93,7 @@ class App
             'website' => 'BuiltNorth\\Schema\\Providers\\WebsiteProvider',
             'author' => 'BuiltNorth\\Schema\\Providers\\AuthorProvider',
             'article' => 'BuiltNorth\\Schema\\Providers\\ArticleProvider',
+            'navigation' => 'BuiltNorth\\Schema\\Providers\\NavigationProvider',
         ];
         
         foreach ($core_providers as $name => $class) {
