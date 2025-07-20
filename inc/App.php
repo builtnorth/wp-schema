@@ -93,6 +93,7 @@ class App
             'website' => 'BuiltNorth\\Schema\\Providers\\WebsiteProvider',
             'author' => 'BuiltNorth\\Schema\\Providers\\AuthorProvider',
             'article' => 'BuiltNorth\\Schema\\Providers\\ArticleProvider',
+            'webpage' => 'BuiltNorth\\Schema\\Providers\\WebPageProvider',
             'archive' => 'BuiltNorth\\Schema\\Providers\\ArchiveProvider',
             'search' => 'BuiltNorth\\Schema\\Providers\\SearchResultsProvider',
             'media' => 'BuiltNorth\\Schema\\Providers\\MediaProvider',
@@ -101,6 +102,7 @@ class App
             'navigation' => 'BuiltNorth\\Schema\\Providers\\NavigationProvider',
             'logo' => 'BuiltNorth\\Schema\\Providers\\LogoProvider',
             'site_icon' => 'BuiltNorth\\Schema\\Providers\\SiteIconProvider',
+            'generic' => 'BuiltNorth\\Schema\\Providers\\GenericSchemaProvider',
         ];
         
         foreach ($core_providers as $name => $class) {
