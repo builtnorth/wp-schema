@@ -18,6 +18,21 @@ class WebsiteProvider implements SchemaProviderInterface
 {
     public function can_provide(string $context): bool
     {
+        // Allow themes/plugins to override website schema provision
+        $can_provide = apply_filters('wp_schema_website_can_provide', true, $context);
+        
+        if (!$can_provide) {
+            return false;
+        }
+        
+        // Check if organization type is "WebSite" to prevent duplicates
+        $organization_type = apply_filters('wp_schema_organization_type', 'Organization');
+        
+        // If organization type is "WebSite", don't provide separate website schema
+        if ($organization_type === 'WebSite') {
+            return false;
+        }
+        
         // Website appears on every page
         return true;
     }
