@@ -35,9 +35,9 @@ Initialize the framework in your plugin or theme:
 
 ```php
 // Initialize wp-schema
-if (class_exists('BuiltNorth\Schema\App')) {
+if (class_exists('BuiltNorth\WPSchema\App')) {
 	add_action('init', function() {
-		BuiltNorth\Schema\App::initialize();
+		BuiltNorth\WPSchema\App::initialize();
 	});
 }
 ```
@@ -96,7 +96,7 @@ Create schema providers by implementing `SchemaProviderInterface`:
 
 namespace MyPlugin\Schema;
 
-use BuiltNorth\Schema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 
 class MySchemaProvider implements SchemaProviderInterface
 {

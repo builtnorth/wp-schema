@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema;
+namespace BuiltNorth\WPSchema;
 
-use BuiltNorth\Schema\Services\ProviderRegistry;
-use BuiltNorth\Schema\Services\GraphBuilder;
-use BuiltNorth\Schema\Services\OutputService;
-use BuiltNorth\Schema\Services\ContextDetector;
-use BuiltNorth\Schema\Services\SchemaTypeRegistry;
+use BuiltNorth\WPSchema\Services\ProviderRegistry;
+use BuiltNorth\WPSchema\Services\GraphBuilder;
+use BuiltNorth\WPSchema\Services\OutputService;
+use BuiltNorth\WPSchema\Services\ContextDetector;
+use BuiltNorth\WPSchema\Services\SchemaTypeRegistry;
 
 /**
  * Main App class for WP Schema package
@@ -89,20 +89,20 @@ class App
     private function register_core_providers(): void
     {
         $core_providers = [
-            'organization' => 'BuiltNorth\\Schema\\Providers\\OrganizationProvider',
-            'website' => 'BuiltNorth\\Schema\\Providers\\WebsiteProvider',
-            'author' => 'BuiltNorth\\Schema\\Providers\\AuthorProvider',
-            'article' => 'BuiltNorth\\Schema\\Providers\\ArticleProvider',
-            'webpage' => 'BuiltNorth\\Schema\\Providers\\WebPageProvider',
-            'archive' => 'BuiltNorth\\Schema\\Providers\\ArchiveProvider',
-            'search' => 'BuiltNorth\\Schema\\Providers\\SearchResultsProvider',
-            'media' => 'BuiltNorth\\Schema\\Providers\\MediaProvider',
-            'page_type' => 'BuiltNorth\\Schema\\Providers\\PageTypeProvider',
-            'comment' => 'BuiltNorth\\Schema\\Providers\\CommentProvider',
-            'navigation' => 'BuiltNorth\\Schema\\Providers\\NavigationProvider',
-            'logo' => 'BuiltNorth\\Schema\\Providers\\LogoProvider',
-            'site_icon' => 'BuiltNorth\\Schema\\Providers\\SiteIconProvider',
-            'generic' => 'BuiltNorth\\Schema\\Providers\\GenericSchemaProvider',
+            'organization' => 'BuiltNorth\\WPSchema\\Providers\\OrganizationProvider',
+            'website' => 'BuiltNorth\\WPSchema\\Providers\\WebsiteProvider',
+            'author' => 'BuiltNorth\\WPSchema\\Providers\\AuthorProvider',
+            'article' => 'BuiltNorth\\WPSchema\\Providers\\ArticleProvider',
+            'webpage' => 'BuiltNorth\\WPSchema\\Providers\\WebPageProvider',
+            'archive' => 'BuiltNorth\\WPSchema\\Providers\\ArchiveProvider',
+            'search' => 'BuiltNorth\\WPSchema\\Providers\\SearchResultsProvider',
+            'media' => 'BuiltNorth\\WPSchema\\Providers\\MediaProvider',
+            'page_type' => 'BuiltNorth\\WPSchema\\Providers\\PageTypeProvider',
+            'comment' => 'BuiltNorth\\WPSchema\\Providers\\CommentProvider',
+            'navigation' => 'BuiltNorth\\WPSchema\\Providers\\NavigationProvider',
+            'logo' => 'BuiltNorth\\WPSchema\\Providers\\LogoProvider',
+            'site_icon' => 'BuiltNorth\\WPSchema\\Providers\\SiteIconProvider',
+            'generic' => 'BuiltNorth\\WPSchema\\Providers\\GenericSchemaProvider',
         ];
         
         foreach ($core_providers as $name => $class) {

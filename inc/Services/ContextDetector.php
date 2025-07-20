@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Services;
+namespace BuiltNorth\WPSchema\Services;
 
 /**
  * Context Detector

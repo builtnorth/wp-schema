@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Services;
+namespace BuiltNorth\WPSchema\Services;
 
-use BuiltNorth\Schema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 
 /**
  * Provider Registry
