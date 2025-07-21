@@ -1,7 +1,7 @@
 {
 	"name": "builtnorth/wp-schema",
 	"description": "Comprehensive schema generation for WordPress with SEO optimization and logo support",
-	"version": "1.0.0-beta",
+	"version": "1.0.0",
 	"type": "library",
 	"license": "GPL-2.0-or-later",
 	"authors": [
