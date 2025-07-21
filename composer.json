@@ -1,12 +1,17 @@
 {
 	"name": "builtnorth/wp-schema",
 	"description": "Comprehensive schema generation for WordPress with SEO optimization and logo support",
+	"version": "1.0.0-beta",
 	"type": "library",
 	"license": "GPL-2.0-or-later",
 	"authors": [
 		{
 			"name": "BuiltNorth",
 			"email": "hello@builtnorth.co"
+		},
+		{
+			"name": "Dan Northern",
+			"email": "contact@dannorthern.com"
 		}
 	],
 	"require": {
@@ -14,12 +19,12 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"BuiltNorth\\Schema\\": "inc/"
+			"BuiltNorth\\WPSchema\\": "inc/"
 		}
 	},
 	"autoload-dev": {
 		"psr-4": {
-			"BuiltNorth\\Schema\\Tests\\": "tests/"
+			"BuiltNorth\\WPSchema\\Tests\\": "tests/"
 		}
 	},
 	"require-dev": {
