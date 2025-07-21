@@ -62,15 +62,15 @@ class App
         $this->output_service->init();
         
         // Allow plugins to register providers
-        do_action('wp_schema_register_providers', $this);
+        do_action('wp_schema_framework_register_providers', $this);
         
         $this->initialized = true;
         
         // Framework is ready
-        do_action('wp_schema_ready', $this);
+        do_action('wp_schema_framework_ready', $this);
         
         // Add filter to provide available schema types for UI
-        add_filter('wp_schema_available_types', [$this->type_registry, 'get_available_types']);
+        add_filter('wp_schema_framework_available_types', [$this->type_registry, 'get_available_types']);
     }
 
     /**

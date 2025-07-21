@@ -19,7 +19,7 @@ class SiteIconProvider implements SchemaProviderInterface
     public function __construct()
     {
         // Add filter on construction to ensure it's always registered
-        add_filter('wp_schema_website_data', [$this, 'add_icon_to_website'], 20, 2);
+        add_filter('wp_schema_framework_website_data', [$this, 'add_icon_to_website'], 20, 2);
     }
     
     public function can_provide(string $context): bool

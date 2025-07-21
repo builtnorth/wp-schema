@@ -54,7 +54,7 @@ class AuthorProvider implements SchemaProviderInterface
         }
         
         // Allow filtering of author data
-        $data = apply_filters('wp_schema_author_data', $person->to_array(), $author_id, $context);
+        $data = apply_filters('wp_schema_framework_author_data', $person->to_array(), $author_id, $context);
         $person->from_array($data);
         
         return [$person];

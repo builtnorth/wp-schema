@@ -95,11 +95,11 @@ class SchemaGraph
     public function apply_filters(string $context): self
     {
         // Allow global modification of all pieces
-        $this->pieces = apply_filters('wp_schema_pieces', $this->pieces, $context);
+        $this->pieces = apply_filters('wp_schema_framework_pieces', $this->pieces, $context);
         
         // Allow modification of specific piece types
         foreach ($this->pieces as $piece) {
-            $type_filter = 'wp_schema_piece_' . strtolower($piece->get_type());
+            $type_filter = 'wp_schema_framework_piece_' . strtolower($piece->get_type());
             $filtered_piece = apply_filters($type_filter, $piece, $context);
             
             if ($filtered_piece instanceof SchemaPiece) {
@@ -110,7 +110,7 @@ class SchemaGraph
         // Allow modification by piece ID
         foreach ($this->pieces as $piece) {
             $id = str_replace(['#', '/', ':'], ['', '_', '_'], $piece->get_id());
-            $id_filter = 'wp_schema_piece_id_' . $id;
+            $id_filter = 'wp_schema_framework_piece_id_' . $id;
             $filtered_piece = apply_filters($id_filter, $piece, $context);
             
             if ($filtered_piece instanceof SchemaPiece) {

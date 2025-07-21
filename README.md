@@ -49,7 +49,7 @@ Once initialized, the framework automatically outputs schema via HTML `<script t
 Register your schema providers via hook:
 
 ```php
-add_action('wp_schema_register_providers', function($provider_manager) {
+add_action('wp_schema_framework_register_providers', function($provider_manager) {
     $provider_manager->register(
         'my_plugin_provider',
         'MyPlugin\\Schema\\MySchemaProvider'
@@ -62,7 +62,7 @@ add_action('wp_schema_register_providers', function($provider_manager) {
 For basic schema additions:
 
 ```php
-add_filter('wp_schema_pieces', function($pieces, $context, $options) {
+add_filter('wp_schema_framework_pieces', function($pieces, $context, $options) {
     if ($context === 'singular' && get_post_type() === 'event') {
         $pieces[] = [
             '@type' => 'Event',
@@ -79,7 +79,7 @@ add_filter('wp_schema_pieces', function($pieces, $context, $options) {
 Override the schema type for specific posts:
 
 ```php
-add_filter('wp_schema_post_type_override', function($type, $post_id, $post_type, $post) {
+add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $post_type, $post) {
     if (get_post_meta($post_id, 'page_type', true) === 'contact') {
         return 'ContactPage';
     }
@@ -215,35 +215,35 @@ The system recognizes these contexts for schema generation:
 
 ### Actions
 
-- `wp_schema_register_providers` - Register custom providers
-- `wp_schema_ready` - Fired when framework is fully initialized
-- `wp_schema_before_output` - Before schema is output
-- `wp_schema_after_output` - After schema is output
+- `wp_schema_framework_register_providers` - Register custom providers
+- `wp_schema_framework_ready` - Fired when framework is fully initialized
+- `wp_schema_framework_before_output` - Before schema is output
+- `wp_schema_framework_after_output` - After schema is output
 
 ### Filters
 
-- `wp_schema_pieces` - Modify final schema pieces array
-- `wp_schema_graph` - Modify complete schema graph before output
-- `wp_schema_piece_{type}` - Modify specific schema piece (e.g., `wp_schema_piece_article`)
-- `wp_schema_post_type_override` - Override schema type for posts/pages
-- `wp_schema_available_types` - Modify available schema types for UI
-- `wp_schema_organization_type_mapping` - Customize organization type mappings
-- `wp_schema_organization_data` - Modify organization schema data
-- `wp_schema_website_data` - Modify website schema data
-- `wp_schema_article_data` - Modify article schema data
-- `wp_schema_archive_data` - Modify archive schema data
-- `wp_schema_search_results_data` - Modify search results schema data
-- `wp_schema_media_data` - Modify media schema data
-- `wp_schema_page_type_data` - Modify page type schema data
-- `wp_schema_context` - Override detected context
-- `wp_schema_output_enabled` - Enable/disable schema output
+- `wp_schema_framework_pieces` - Modify final schema pieces array
+- `wp_schema_framework_graph` - Modify complete schema graph before output
+- `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `wp_schema_framework_piece_article`)
+- `wp_schema_framework_post_type_override` - Override schema type for posts/pages
+- `wp_schema_framework_available_types` - Modify available schema types for UI
+- `wp_schema_framework_organization_type_mapping` - Customize organization type mappings
+- `wp_schema_framework_organization_data` - Modify organization schema data
+- `wp_schema_framework_website_data` - Modify website schema data
+- `wp_schema_framework_article_data` - Modify article schema data
+- `wp_schema_framework_archive_data` - Modify archive schema data
+- `wp_schema_framework_search_results_data` - Modify search results schema data
+- `wp_schema_framework_media_data` - Modify media schema data
+- `wp_schema_framework_page_type_data` - Modify page type schema data
+- `wp_schema_framework_context` - Override detected context
+- `wp_schema_framework_output_enabled` - Enable/disable schema output
 
 ### Schema Type Registry
 
 Access available schema types for UI elements:
 
 ```php
-$types = apply_filters('wp_schema_available_types', []);
+$types = apply_filters('wp_schema_framework_available_types', []);
 // Returns array of ['label' => 'Article', 'value' => 'Article'] items
 ```
 

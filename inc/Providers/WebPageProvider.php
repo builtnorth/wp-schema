@@ -22,7 +22,7 @@ class WebPageProvider implements SchemaProviderInterface
         if ($context === 'home') {
             $seo_settings = get_option('polaris_seo_settings', []);
             $schema_type = $seo_settings['home']['default_schema_type'] ?? 'WebPage';
-            $schema_type = apply_filters('wp_schema_homepage_type', $schema_type);
+            $schema_type = apply_filters('wp_schema_framework_homepage_type', $schema_type);
             return $schema_type === 'WebPage';
         }
         
@@ -37,7 +37,7 @@ class WebPageProvider implements SchemaProviderInterface
         
         // Get schema type with filters
         $default_type = $this->get_default_schema_type($post->post_type);
-        $schema_type = apply_filters('wp_schema_post_type_override', $default_type, $post->ID, $post->post_type, $post);
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
         
         // Handle WebPage and generic page types
         return $schema_type === 'WebPage';
@@ -95,8 +95,8 @@ class WebPageProvider implements SchemaProviderInterface
             $webpage->add_reference('breadcrumb', '#breadcrumb');
             
             // Allow filtering of homepage data
-            $data = apply_filters('wp_schema_homepage_data', $webpage->to_array());
-            $data = apply_filters('wp_schema_webpage_data', $data, 0, null);
+            $data = apply_filters('wp_schema_framework_homepage_data', $webpage->to_array());
+            $data = apply_filters('wp_schema_framework_webpage_data', $data, 0, null);
             $webpage->from_array($data);
             
             return [$webpage];
@@ -109,7 +109,7 @@ class WebPageProvider implements SchemaProviderInterface
         }
         // Get schema type
         $default_type = $this->get_default_schema_type($post->post_type);
-        $schema_type = apply_filters('wp_schema_post_type_override', $default_type, $post->ID, $post->post_type, $post);
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
         
         // Create webpage piece with unique ID based on post type and ID
         $piece_id = $post->post_type . '-' . $post->ID;
@@ -126,7 +126,7 @@ class WebPageProvider implements SchemaProviderInterface
             ->add_reference('isPartOf', '#website');
         
         // Add description from filter or excerpt
-        $description = apply_filters('wp_schema_post_description', '', $post->ID, $post);
+        $description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);
         if ($description) {
             $webpage->set('description', $description);
         } elseif ($post->post_excerpt) {
@@ -148,7 +148,7 @@ class WebPageProvider implements SchemaProviderInterface
         $webpage->add_reference('breadcrumb', '#breadcrumb');
         
         // Allow filtering of webpage data
-        $data = apply_filters('wp_schema_webpage_data', $webpage->to_array(), $post->ID, $post);
+        $data = apply_filters('wp_schema_framework_webpage_data', $webpage->to_array(), $post->ID, $post);
         $webpage->from_array($data);
         
         return [$webpage];
@@ -168,6 +168,6 @@ class WebPageProvider implements SchemaProviderInterface
             'page' => 'WebPage',
         ];
         
-        return apply_filters('wp_schema_post_type_mapping', $mappings[$post_type] ?? '', $post_type);
+        return apply_filters('wp_schema_framework_post_type_mapping', $mappings[$post_type] ?? '', $post_type);
     }
 }

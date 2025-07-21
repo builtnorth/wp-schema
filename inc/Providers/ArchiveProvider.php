@@ -54,7 +54,7 @@ class ArchiveProvider implements SchemaProviderInterface
         $this->add_pagination($archive);
         
         // Allow filtering of archive data
-        $data = apply_filters('wp_schema_archive_data', $archive->to_array(), $context);
+        $data = apply_filters('wp_schema_framework_archive_data', $archive->to_array(), $context);
         $archive->from_array($data);
         
         $pieces[] = $archive;
@@ -246,7 +246,7 @@ class ArchiveProvider implements SchemaProviderInterface
         $post_type = get_post_type();
         
         // Check for override filter
-        $type = apply_filters('wp_schema_archive_item_type', '', $post_type);
+        $type = apply_filters('wp_schema_framework_archive_item_type', '', $post_type);
         if ($type) {
             return $type;
         }

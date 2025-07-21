@@ -38,7 +38,7 @@ class OrganizationProvider implements SchemaProviderInterface
         }
         
         // Allow filtering of organization data
-        $data = apply_filters('wp_schema_organization_data', $organization->to_array(), $context);
+        $data = apply_filters('wp_schema_framework_organization_data', $organization->to_array(), $context);
         $organization->from_array($data);
         
         return [$organization];

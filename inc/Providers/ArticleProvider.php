@@ -22,7 +22,7 @@ class ArticleProvider implements SchemaProviderInterface
         if ($context === 'home') {
             $seo_settings = get_option('polaris_seo_settings', []);
             $schema_type = $seo_settings['home']['default_schema_type'] ?? 'WebPage';
-            $schema_type = apply_filters('wp_schema_homepage_type', $schema_type);
+            $schema_type = apply_filters('wp_schema_framework_homepage_type', $schema_type);
             return in_array($schema_type, ['Article', 'BlogPosting', 'NewsArticle'], true);
         }
         
@@ -37,7 +37,7 @@ class ArticleProvider implements SchemaProviderInterface
         
         // Get schema type with filters
         $default_type = $this->get_default_schema_type($post->post_type);
-        $schema_type = apply_filters('wp_schema_post_type_override', $default_type, $post->ID, $post->post_type, $post);
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
         
         return in_array($schema_type, ['Article', 'BlogPosting', 'NewsArticle'], true);
     }
@@ -48,7 +48,7 @@ class ArticleProvider implements SchemaProviderInterface
         if ($context === 'home') {
             $seo_settings = get_option('polaris_seo_settings', []);
             $schema_type = $seo_settings['home']['default_schema_type'] ?? 'WebPage';
-            $schema_type = apply_filters('wp_schema_homepage_type', $schema_type);
+            $schema_type = apply_filters('wp_schema_framework_homepage_type', $schema_type);
             
             // Create article piece for homepage
             $article = new SchemaPiece('homepage', $schema_type);
@@ -101,8 +101,8 @@ class ArticleProvider implements SchemaProviderInterface
             }
             
             // Allow filtering of homepage data
-            $data = apply_filters('wp_schema_homepage_data', $article->to_array());
-            $data = apply_filters('wp_schema_article_data', $data, 0, null);
+            $data = apply_filters('wp_schema_framework_homepage_data', $article->to_array());
+            $data = apply_filters('wp_schema_framework_article_data', $data, 0, null);
             $article->from_array($data);
             
             return [$article];
@@ -116,7 +116,7 @@ class ArticleProvider implements SchemaProviderInterface
         
         // Get schema type
         $default_type = $this->get_default_schema_type($post->post_type);
-        $schema_type = apply_filters('wp_schema_post_type_override', $default_type, $post->ID, $post->post_type, $post);
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
         
         // Create article piece
         $article = new SchemaPiece('#article', $schema_type);
@@ -131,7 +131,7 @@ class ArticleProvider implements SchemaProviderInterface
             ->add_reference('publisher', '#organization');
         
         // Add description from filter or excerpt
-        $description = apply_filters('wp_schema_post_description', '', $post->ID, $post);
+        $description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);
         if ($description) {
             $article->set('description', $description);
         } elseif ($post->post_excerpt) {
@@ -168,6 +168,6 @@ class ArticleProvider implements SchemaProviderInterface
             'blog_post' => 'BlogPosting',
         ];
         
-        return apply_filters('wp_schema_post_type_mapping', $mappings[$post_type] ?? '', $post_type);
+        return apply_filters('wp_schema_framework_post_type_mapping', $mappings[$post_type] ?? '', $post_type);
     }
 }

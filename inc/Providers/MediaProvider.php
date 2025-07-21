@@ -101,7 +101,7 @@ class MediaProvider implements SchemaProviderInterface
         $media->add_reference('breadcrumb', '#breadcrumb');
         
         // Allow filtering of media data
-        $data = apply_filters('wp_schema_media_data', $media->to_array(), $context, $attachment_id);
+        $data = apply_filters('wp_schema_framework_media_data', $media->to_array(), $context, $attachment_id);
         $media->from_array($data);
         
         return [$media];

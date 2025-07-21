@@ -40,7 +40,7 @@ class GenericSchemaProvider implements SchemaProviderInterface
         if ($context === 'home') {
             $seo_settings = get_option('polaris_seo_settings', []);
             $schema_type = $seo_settings['home']['default_schema_type'] ?? 'WebPage';
-            $schema_type = apply_filters('wp_schema_homepage_type', $schema_type);
+            $schema_type = apply_filters('wp_schema_framework_homepage_type', $schema_type);
             // Only handle types that don't have specific providers
             return !empty($schema_type) && !in_array($schema_type, $this->handled_types, true);
         }
@@ -56,7 +56,7 @@ class GenericSchemaProvider implements SchemaProviderInterface
         
         // Get schema type with filters
         $default_type = $this->get_default_schema_type($post->post_type);
-        $schema_type = apply_filters('wp_schema_post_type_override', $default_type, $post->ID, $post->post_type, $post);
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
         
         // Only handle types that don't have specific providers
         return !empty($schema_type) && !in_array($schema_type, $this->handled_types, true);
@@ -68,7 +68,7 @@ class GenericSchemaProvider implements SchemaProviderInterface
         if ($context === 'home') {
             $seo_settings = get_option('polaris_seo_settings', []);
             $schema_type = $seo_settings['home']['default_schema_type'] ?? 'WebPage';
-            $schema_type = apply_filters('wp_schema_homepage_type', $schema_type);
+            $schema_type = apply_filters('wp_schema_framework_homepage_type', $schema_type);
             
             // Create generic schema piece for homepage
             $generic = new SchemaPiece('homepage', $schema_type);
@@ -131,9 +131,9 @@ class GenericSchemaProvider implements SchemaProviderInterface
             $generic->add_reference('isPartOf', '#website');
             
             // Allow filtering of homepage data
-            $data = apply_filters('wp_schema_homepage_data', $generic->to_array());
-            $data = apply_filters('wp_schema_generic_data', $data, 0, null);
-            $data = apply_filters('wp_schema_' . strtolower($schema_type) . '_data', $data, 0, null);
+            $data = apply_filters('wp_schema_framework_homepage_data', $generic->to_array());
+            $data = apply_filters('wp_schema_framework_generic_data', $data, 0, null);
+            $data = apply_filters('wp_schema_framework_' . strtolower($schema_type) . '_data', $data, 0, null);
             $generic->from_array($data);
             
             return [$generic];
@@ -147,7 +147,7 @@ class GenericSchemaProvider implements SchemaProviderInterface
         
         // Get schema type
         $default_type = $this->get_default_schema_type($post->post_type);
-        $schema_type = apply_filters('wp_schema_post_type_override', $default_type, $post->ID, $post->post_type, $post);
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
         
         // Create generic schema piece with unique ID
         $piece_id = $post->post_type . '-' . $post->ID;
@@ -198,8 +198,8 @@ class GenericSchemaProvider implements SchemaProviderInterface
         $generic->add_reference('breadcrumb', '#breadcrumb');
         
         // Allow filtering of generic schema data
-        $data = apply_filters('wp_schema_generic_data', $generic->to_array(), $post->ID, $post);
-        $data = apply_filters('wp_schema_' . strtolower($schema_type) . '_data', $data, $post->ID, $post);
+        $data = apply_filters('wp_schema_framework_generic_data', $generic->to_array(), $post->ID, $post);
+        $data = apply_filters('wp_schema_framework_' . strtolower($schema_type) . '_data', $data, $post->ID, $post);
         $generic->from_array($data);
         
         return [$generic];
@@ -216,7 +216,7 @@ class GenericSchemaProvider implements SchemaProviderInterface
     private function get_default_schema_type(string $post_type): string
     {
         // This provider doesn't have defaults - it only handles what's explicitly set
-        return apply_filters('wp_schema_post_type_mapping', '', $post_type);
+        return apply_filters('wp_schema_framework_post_type_mapping', '', $post_type);
     }
     
     /**
