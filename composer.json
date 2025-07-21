@@ -1,17 +1,13 @@
 {
 	"name": "builtnorth/wp-schema",
 	"description": "Comprehensive schema generation for WordPress with SEO optimization and logo support",
-	"version": "1.0.0-beta",
+	"version": "1.0.0",
 	"type": "library",
 	"license": "GPL-2.0-or-later",
 	"authors": [
 		{
 			"name": "BuiltNorth",
 			"email": "hello@builtnorth.co"
-		},
-		{
-			"name": "Dan Northern",
-			"email": "contact@dannorthern.com"
 		}
 	],
 	"require": {
@@ -35,6 +31,27 @@
 	"config": {
 		"optimize-autoloader": true,
 		"sort-packages": true
+	},
+	"scripts": {
+		"test": "phpunit",
+		"test:coverage": "phpunit --coverage-html coverage",
+		"test:watch": "phpunit-watcher watch",
+		"cs": "phpcs",
+		"cs:fix": "phpcbf",
+		"analyze": "phpstan analyze",
+		"check": [
+			"@cs",
+			"@test"
+		]
+	},
+	"scripts-descriptions": {
+		"test": "Run PHPUnit tests",
+		"test:coverage": "Run PHPUnit tests with HTML coverage report",
+		"test:watch": "Watch for changes and run tests automatically",
+		"cs": "Check code style with PHP_CodeSniffer",
+		"cs:fix": "Fix code style issues with PHP_CodeSniffer",
+		"analyze": "Run static analysis with PHPStan",
+		"check": "Run all quality checks (code style and tests)"
 	},
 	"minimum-stability": "stable",
 	"prefer-stable": true
