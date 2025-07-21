@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Providers;
+namespace BuiltNorth\WPSchema\Providers;
 
-use BuiltNorth\Schema\Contracts\SchemaProviderInterface;
-use BuiltNorth\Schema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
  * Search Results Provider
@@ -88,7 +88,7 @@ class SearchResultsProvider implements SchemaProviderInterface
         $search_page->set('searchResultsCount', $result_count);
         
         // Allow filtering of search results data
-        $data = apply_filters('wp_schema_search_results_data', $search_page->to_array(), $context, $search_query);
+        $data = apply_filters('wp_schema_framework_search_results_data', $search_page->to_array(), $context, $search_query);
         $search_page->from_array($data);
         
         $pieces[] = $search_page;
@@ -200,7 +200,7 @@ class SearchResultsProvider implements SchemaProviderInterface
         $post_type = get_post_type();
         
         // Check for override filter
-        $type = apply_filters('wp_schema_search_item_type', '', $post_type);
+        $type = apply_filters('wp_schema_framework_search_item_type', '', $post_type);
         if ($type) {
             return $type;
         }

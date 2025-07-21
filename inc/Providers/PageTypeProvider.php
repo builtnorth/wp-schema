@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Providers;
+namespace BuiltNorth\WPSchema\Providers;
 
-use BuiltNorth\Schema\Contracts\SchemaProviderInterface;
-use BuiltNorth\Schema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
  * Page Type Provider
@@ -30,7 +30,7 @@ class PageTypeProvider implements SchemaProviderInterface
             return false;
         }
         
-        $schema_type = apply_filters('wp_schema_post_type_override', '', $post_id, get_post_type(), get_post());
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', '', $post_id, get_post_type(), get_post());
         
         // Check if it's one of our supported page types
         return in_array($schema_type, $this->get_supported_types(), true);
@@ -44,7 +44,7 @@ class PageTypeProvider implements SchemaProviderInterface
         }
         
         // Get the schema type override
-        $schema_type = apply_filters('wp_schema_post_type_override', '', $post->ID, $post->post_type, $post);
+        $schema_type = apply_filters('wp_schema_framework_post_type_override', '', $post->ID, $post->post_type, $post);
         
         if (!in_array($schema_type, $this->get_supported_types(), true)) {
             return [];
@@ -88,7 +88,7 @@ class PageTypeProvider implements SchemaProviderInterface
         }
         
         // Allow filtering of page data
-        $data = apply_filters('wp_schema_page_type_data', $page->to_array(), $context, $schema_type);
+        $data = apply_filters('wp_schema_framework_page_type_data', $page->to_array(), $context, $schema_type);
         $page->from_array($data);
         
         return [$page];
@@ -271,7 +271,7 @@ class PageTypeProvider implements SchemaProviderInterface
     private function set_faq_page_properties(SchemaPiece $page, \WP_Post $post): void
     {
         // Look for FAQ content in the post
-        $faq_items = apply_filters('wp_schema_faq_items', [], $post->ID);
+        $faq_items = apply_filters('wp_schema_framework_faq_items', [], $post->ID);
         
         if (!empty($faq_items)) {
             $page->set('mainEntity', $faq_items);
@@ -287,7 +287,7 @@ class PageTypeProvider implements SchemaProviderInterface
         // Different from archive pages which are automatic
         
         // Look for collection items
-        $collection_items = apply_filters('wp_schema_collection_items', [], $post->ID);
+        $collection_items = apply_filters('wp_schema_framework_collection_items', [], $post->ID);
         
         if (!empty($collection_items)) {
             $page->set('hasPart', $collection_items);
@@ -300,14 +300,14 @@ class PageTypeProvider implements SchemaProviderInterface
     private function set_media_gallery_properties(SchemaPiece $page, \WP_Post $post): void
     {
         // Look for gallery items
-        $gallery_items = apply_filters('wp_schema_gallery_items', [], $post->ID);
+        $gallery_items = apply_filters('wp_schema_framework_gallery_items', [], $post->ID);
         
         if (!empty($gallery_items)) {
             $page->set('hasPart', $gallery_items);
         }
         
         // Add image count if available
-        $image_count = apply_filters('wp_schema_gallery_image_count', 0, $post->ID);
+        $image_count = apply_filters('wp_schema_framework_gallery_image_count', 0, $post->ID);
         if ($image_count > 0) {
             $page->set('numberOfItems', $image_count);
         }

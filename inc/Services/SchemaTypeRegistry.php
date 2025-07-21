@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Services;
+namespace BuiltNorth\WPSchema\Services;
 
 /**
  * Schema Type Registry
@@ -67,7 +67,7 @@ class SchemaTypeRegistry
         ];
 
         // Allow filtering to add/remove types
-        return apply_filters('wp_schema_type_registry_types', $types);
+        return apply_filters('wp_schema_framework_type_registry_types', $types);
     }
 
     /**
@@ -94,7 +94,7 @@ class SchemaTypeRegistry
             'faq' => 'FAQPage',
         ];
 
-        return apply_filters('wp_schema_post_type_mappings', $mappings);
+        return apply_filters('wp_schema_framework_post_type_mappings', $mappings);
     }
 
     /**

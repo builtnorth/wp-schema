@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Contracts;
+namespace BuiltNorth\WPSchema\Contracts;
 
-use BuiltNorth\Schema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
  * Schema Provider Interface

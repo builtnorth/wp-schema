@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Providers;
+namespace BuiltNorth\WPSchema\Providers;
 
-use BuiltNorth\Schema\Contracts\SchemaProviderInterface;
-use BuiltNorth\Schema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
  * Author Provider
@@ -23,7 +23,7 @@ class AuthorProvider implements SchemaProviderInterface
         }
         
         $post = get_queried_object();
-        return $post && isset($post->post_author);
+        return $post && isset($post->post_author) && $post->post_author > 0;
     }
     
     public function get_pieces(string $context): array
@@ -54,7 +54,7 @@ class AuthorProvider implements SchemaProviderInterface
         }
         
         // Allow filtering of author data
-        $data = apply_filters('wp_schema_author_data', $person->to_array(), $author_id, $context);
+        $data = apply_filters('wp_schema_framework_author_data', $person->to_array(), $author_id, $context);
         $person->from_array($data);
         
         return [$person];

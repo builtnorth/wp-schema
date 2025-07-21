@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Graph;
+namespace BuiltNorth\WPSchema\Graph;
 
 /**
  * Schema Piece

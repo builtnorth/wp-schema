@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Services;
+namespace BuiltNorth\WPSchema\Services;
 
-use BuiltNorth\Schema\Graph\SchemaGraph;
-use BuiltNorth\Schema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Graph\SchemaGraph;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
  * Graph Builder Service

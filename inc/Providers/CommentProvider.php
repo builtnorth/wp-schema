@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Providers;
+namespace BuiltNorth\WPSchema\Providers;
 
-use BuiltNorth\Schema\Contracts\SchemaProviderInterface;
-use BuiltNorth\Schema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
  * Comment Provider
@@ -20,10 +20,10 @@ class CommentProvider implements SchemaProviderInterface
     public function __construct()
     {
         // Hook into piece filters to add comments
-        add_filter('wp_schema_piece_article', [$this, 'add_comments_to_piece'], 30, 2);
-        add_filter('wp_schema_piece_webpage', [$this, 'add_comments_to_piece'], 30, 2);
-        add_filter('wp_schema_piece_blogposting', [$this, 'add_comments_to_piece'], 30, 2);
-        add_filter('wp_schema_piece_newsarticle', [$this, 'add_comments_to_piece'], 30, 2);
+        add_filter('wp_schema_framework_piece_article', [$this, 'add_comments_to_piece'], 30, 2);
+        add_filter('wp_schema_framework_piece_webpage', [$this, 'add_comments_to_piece'], 30, 2);
+        add_filter('wp_schema_framework_piece_blogposting', [$this, 'add_comments_to_piece'], 30, 2);
+        add_filter('wp_schema_framework_piece_newsarticle', [$this, 'add_comments_to_piece'], 30, 2);
     }
     
     public function can_provide(string $context): bool

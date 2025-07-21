@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace BuiltNorth\Schema\Providers;
+namespace BuiltNorth\WPSchema\Providers;
 
-use BuiltNorth\Schema\Contracts\SchemaProviderInterface;
-use BuiltNorth\Schema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
  * Organization Provider
@@ -38,7 +38,7 @@ class OrganizationProvider implements SchemaProviderInterface
         }
         
         // Allow filtering of organization data
-        $data = apply_filters('wp_schema_organization_data', $organization->to_array(), $context);
+        $data = apply_filters('wp_schema_framework_organization_data', $organization->to_array(), $context);
         $organization->from_array($data);
         
         return [$organization];
