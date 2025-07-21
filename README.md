@@ -1,6 +1,6 @@
-# WP Schema
+# WP Schema Framework
 
-A comprehensive, WordPress-first schema generation framework with a clean provider-based architecture.
+A comprehensive, WordPress schema generation framework with a clean provider-based architecture.
 
 ## Architecture
 
@@ -155,48 +155,48 @@ The package outputs clean schema with proper relationships using the @graph form
 
 ```json
 {
-    "@context": "https://schema.org",
-    "@graph": [
-        {
-            "@type": "Organization",
-            "@id": "https://example.com/#organization",
-            "name": "My Organization",
-            "logo": {
-                "@type": "ImageObject",
-                "url": "https://example.com/logo.png"
-            }
-        },
-        {
-            "@type": "WebSite",
-            "@id": "https://example.com/#website",
-            "name": "My Site",
-            "publisher": { "@id": "https://example.com/#organization" },
-            "image": {
-                "@type": "ImageObject",
-                "url": "https://example.com/icon.png"
-            }
-        },
-        {
-            "@type": "Article",
-            "@id": "https://example.com/post/#article",
-            "headline": "Article Title",
-            "author": { "@id": "https://example.com/#author-1" },
-            "publisher": { "@id": "https://example.com/#organization" },
-            "comment": [
-                {
-                    "@type": "Comment",
-                    "author": { "@type": "Person", "name": "Commenter" },
-                    "text": "Great article!"
-                }
-            ]
-        },
-        {
-            "@type": "Person",
-            "@id": "https://example.com/#author-1",
-            "name": "Author Name",
-            "url": "https://example.com/author/authorname/"
-        }
-    ]
+	"@context": "https://schema.org",
+	"@graph": [
+		{
+			"@type": "Organization",
+			"@id": "https://example.com/#organization",
+			"name": "My Organization",
+			"logo": {
+				"@type": "ImageObject",
+				"url": "https://example.com/logo.png"
+			}
+		},
+		{
+			"@type": "WebSite",
+			"@id": "https://example.com/#website",
+			"name": "My Site",
+			"publisher": { "@id": "https://example.com/#organization" },
+			"image": {
+				"@type": "ImageObject",
+				"url": "https://example.com/icon.png"
+			}
+		},
+		{
+			"@type": "Article",
+			"@id": "https://example.com/post/#article",
+			"headline": "Article Title",
+			"author": { "@id": "https://example.com/#author-1" },
+			"publisher": { "@id": "https://example.com/#organization" },
+			"comment": [
+				{
+					"@type": "Comment",
+					"author": { "@type": "Person", "name": "Commenter" },
+					"text": "Great article!"
+				}
+			]
+		},
+		{
+			"@type": "Person",
+			"@id": "https://example.com/#author-1",
+			"name": "Author Name",
+			"url": "https://example.com/author/authorname/"
+		}
+	]
 }
 ```
 
