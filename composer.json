@@ -1,60 +1,60 @@
 {
-	"name": "builtnorth/wp-schema",
-	"description": "Comprehensive schema generation for WordPress with SEO optimization and logo support",
-	"version": "1.0.0",
-	"type": "library",
-	"license": "GPL-2.0-or-later",
-	"authors": [
-		{
-			"name": "BuiltNorth",
-			"email": "hello@builtnorth.co"
-		}
-	],
-	"require": {
-		"php": ">=8.1"
-	},
-	"autoload": {
-		"psr-4": {
-			"BuiltNorth\\WPSchema\\": "inc/"
-		}
-	},
-	"autoload-dev": {
-		"psr-4": {
-			"BuiltNorth\\WPSchema\\Tests\\": "tests/"
-		}
-	},
-	"require-dev": {
-		"phpunit/phpunit": "^9.0",
-		"10up/wp_mock": "^1.0",
-		"mockery/mockery": "^1.5",
-		"builtnorth/coding-standards": "*"
-	},
-	"config": {
-		"optimize-autoloader": true,
-		"sort-packages": true,
-		"allow-plugins": {
-			"dealerdirect/phpcodesniffer-composer-installer": true
-		}
-	},
-	"scripts": {
-		"test": "vendor/bin/phpunit",
-		"test:coverage": "vendor/bin/phpunit --coverage-html coverage",
-		"lint": "vendor/bin/phpcs",
-		"lint:fix": "vendor/bin/phpcbf",
-		"check": [
-			"@lint",
-			"@test"
-		]
-	},
-	"scripts-descriptions": {
-		"test": "Run PHPUnit tests",
-		"test:coverage": "Run PHPUnit tests with HTML coverage report",
-		"test:watch": "Watch for changes and run tests automatically",
-		"cs": "Check code style with PHP_CodeSniffer",
-		"cs:fix": "Fix code style issues with PHP_CodeSniffer",
-		"analyze": "Run static analysis with PHPStan",
-		"check": "Run all quality checks (code style and tests)"
-	},
-	"minimum-stability": "stable",
-	"prefer-stable": true
+  "name": "builtnorth/wp-schema",
+  "description": "Comprehensive schema generation for WordPress with SEO optimization and logo support",
+  "type": "library",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "BuiltNorth",
+      "email": "hello@builtnorth.co"
+    }
+  ],
+  "require": {
+    "php": ">=8.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "BuiltNorth\\WPSchema\\": "inc/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "BuiltNorth\\WPSchema\\Tests\\": "tests/"
+    }
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.0",
+    "10up/wp_mock": "^1.0",
+    "mockery/mockery": "^1.5",
+    "builtnorth/coding-standards": "*"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "test:unit": "phpunit --testsuite Unit",
+    "test:coverage": "phpunit --coverage-html coverage",
+    "lint": "phpcs",
+    "lint:fix": "phpcbf",
+    "phpcs": "phpcs",
+    "phpcs:summary": "phpcs --report=summary",
+    "phpcbf": "phpcbf",
+    "phpcompat": "phpcs -p inc --standard=PHPCompatibility --runtime-set testVersion 8.1-"
+  },
+  "scripts-descriptions": {
+    "test": "Run PHPUnit tests",
+    "test:coverage": "Run PHPUnit tests with HTML coverage report",
+    "test:watch": "Watch for changes and run tests automatically",
+    "cs": "Check code style with PHP_CodeSniffer",
+    "cs:fix": "Fix code style issues with PHP_CodeSniffer",
+    "analyze": "Run static analysis with PHPStan",
+    "check": "Run all quality checks (code style and tests)"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
 }
