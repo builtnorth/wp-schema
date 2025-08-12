@@ -436,8 +436,47 @@ class SchemaTypeRegistry
                 return in_array($type['value'], $relevant_place_types);
             }
             
+            // Include special cases for website identity
+            $special_identity_types = ['Person', 'WebSite', 'Blog'];
+            if (isset($type['value']) && in_array($type['value'], $special_identity_types)) {
+                return true;
+            }
+            
             return false;
         });
+        
+        // Add special cases that might not be in the main list
+        $special_cases = [
+            [
+                'label' => 'Person (Personal Brand)',
+                'value' => 'Person',
+                'category' => 'Person',
+                'subcategory' => 'Person',
+                'description' => 'For personal websites, portfolios, and individual professionals'
+            ],
+            [
+                'label' => 'WebSite',
+                'value' => 'WebSite',
+                'category' => 'CreativeWork',
+                'subcategory' => 'WebSite',
+                'description' => 'Generic website schema'
+            ],
+            [
+                'label' => 'Blog',
+                'value' => 'Blog',
+                'category' => 'CreativeWork',
+                'subcategory' => 'Blog',
+                'description' => 'For blog-focused websites'
+            ]
+        ];
+        
+        // Check if special cases are already in the list, if not add them
+        $existing_values = array_column($org_types, 'value');
+        foreach ($special_cases as $special_case) {
+            if (!in_array($special_case['value'], $existing_values)) {
+                array_unshift($org_types, $special_case);
+            }
+        }
         
         return array_values($org_types);
     }
