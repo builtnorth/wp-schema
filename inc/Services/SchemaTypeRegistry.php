@@ -524,4 +524,35 @@ class SchemaTypeRegistry
         
         return $sorted;
     }
+
+    /**
+     * Get content-focused schema types
+     * For use in post/page schema type selectors
+     * 
+     * @return array Content-relevant schema types
+     */
+    public function get_content_types(): array
+    {
+        $types = $this->get_available_types();
+        
+        // Filter to content-relevant types
+        $content_types = array_filter($types, function($type) {
+            // Include content and creative work types
+            if (isset($type['category']) && $type['category'] === 'CreativeWork') {
+                return true;
+            }
+            
+            // Include specific product/service types
+            $content_values = [
+                'Product', 'Service', 'Event', 'JobPosting',
+                'Recipe', 'Review', 'Course', 'Quiz',
+                'FAQPage', 'HowTo', 'QAPage',
+                'Person', 'Place', 'Thing'
+            ];
+            
+            return in_array($type['value'], $content_values);
+        });
+        
+        return array_values($content_types);
+    }
 }
