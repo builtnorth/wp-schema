@@ -242,34 +242,31 @@ The system recognizes these contexts for schema generation:
 
 ### Schema Type Registry
 
-Access available schema types for UI elements:
+Access available schema types for UI elements like dropdowns in admin settings:
 
 ```php
+// Get available schema types
 $types = apply_filters('wp_schema_framework_available_types', []);
 // Returns array of ['label' => 'Article', 'value' => 'Article'] items
+
+// Example: Creating a schema type dropdown in admin
+echo '<select name="schema_type">';
+foreach ($types as $type) {
+    echo sprintf(
+        '<option value="%s">%s</option>',
+        esc_attr($type['value']),
+        esc_html($type['label'])
+    );
+}
+echo '</select>';
 ```
+
+This provides 30+ common schema types (Article, Product, LocalBusiness, Event, etc.) and can be extended via filters.
 
 ## Requirements
 
 - PHP 8.1+
 - WordPress 6.0+
-
-## Contributing
-
-This package follows WordPress coding standards and uses a simple, WordPress-first approach. When contributing:
-
-1. Keep the core framework minimal and focused
-2. Use WordPress hooks and patterns
-3. Follow the provider interface for extensions
-4. Write clear, semantic schema output
-
-## License
-
-GPL-2.0-or-later
-
-## Support
-
-For support and questions, please open an issue on GitHub.
 
 ## API Reference
 
@@ -341,6 +338,18 @@ $has_author = $piece->has('author');
 // Convert to array
 $data = $piece->to_array();
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to this project.
+
+## License
+
+This package is licensed under the GPL version 2 or later. See [LICENSE.md](LICENSE.md) for details.
+
+## Support
+
+For support and questions, please open an issue on GitHub.
 
 ## Disclaimer
 
