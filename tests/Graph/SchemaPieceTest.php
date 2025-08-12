@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace BuiltNorth\WPSchema\Tests\Graph;
 
-use PHPUnit\Framework\TestCase;
+use BuiltNorth\WPSchema\Tests\TestCase;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
 
 /**
