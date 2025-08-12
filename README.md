@@ -290,10 +290,27 @@ add_filter('wp_schema_framework_type_registry_types', function($types) {
 });
 ```
 
+Replace with a custom curated list:
+
+```php
+// Replace entire registry with your own curated list
+add_filter('wp_schema_framework_type_registry_types', function($types) {
+    // Ignore default types and define only what you need
+    return [
+        ['label' => 'Article', 'value' => 'Article'],
+        ['label' => 'Product', 'value' => 'Product'],
+        ['label' => 'LocalBusiness', 'value' => 'LocalBusiness'],
+        ['label' => 'Event', 'value' => 'Event'],
+        ['label' => 'Person', 'value' => 'Person'],
+        ['label' => 'Organization', 'value' => 'Organization'],
+    ];
+});
+```
+
 Remove or modify existing types:
 
 ```php
-// Remove specific schema types
+// Remove specific schema types from existing list
 add_filter('wp_schema_framework_type_registry_types', function($types) {
     // Remove all Action types (not typically used as main entity)
     $types = array_filter($types, function($type) {
