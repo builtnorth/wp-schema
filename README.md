@@ -20,7 +20,7 @@ WP Schema follows a clean, modular architecture:
 - **Flexible Filtering**: Multiple filter hooks for customization at every level
 - **Reference Resolution**: Clean @id references for building complex schema graphs
 - **WordPress Core Integration**: Automatic schema for posts, pages, archives, media, and more
-- **Type Registry**: Centralized management of schema.org types with UI support
+- **Type Registry**: Comprehensive registry of 250+ schema.org types with UI support
 
 ## Installation
 
@@ -261,7 +261,17 @@ foreach ($types as $type) {
 echo '</select>';
 ```
 
-This provides 30+ common schema types (Article, Product, LocalBusiness, Event, etc.) and can be extended via filters.
+The registry provides 250+ comprehensive schema types including:
+- **Content Types**: Article, BlogPosting, NewsArticle, HowTo, QAPage, TechArticle, Report
+- **Business & Services**: LocalBusiness subtypes, home services (Plumber, Electrician, etc.), professional services (Attorney, Dentist, etc.)
+- **Commerce**: Product, Service, Store types, automotive services
+- **Places & Venues**: Restaurant, Hotel, Museum, Zoo, Park, recreational facilities
+- **Events**: 20+ event subtypes including BusinessEvent, MusicEvent, SportsEvent
+- **Media & Creative Works**: Various media types, artwork, publications
+- **Digital Products**: SoftwareApplication, MobileApplication, WebApplication
+- **Geographic**: Country, City, Mountain, Beach, tourist destinations
+
+All types can be extended via the `wp_schema_framework_type_registry_types` filter.
 
 ## Requirements
 
