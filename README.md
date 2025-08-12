@@ -247,7 +247,7 @@ Access available schema types for UI elements like dropdowns in admin settings:
 ```php
 // Get available schema types
 $types = apply_filters('wp_schema_framework_available_types', []);
-// Returns array of ['label' => 'Article', 'value' => 'Article'] items
+// Returns array with label, value, category, subcategory, and parent fields
 
 // Example: Creating a schema type dropdown in admin
 echo '<select name="schema_type">';
@@ -259,6 +259,54 @@ foreach ($types as $type) {
     );
 }
 echo '</select>';
+```
+
+#### Categorized Schema Types
+
+The registry now includes category metadata for better organization:
+
+```php
+// Get types organized by category
+$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
+$categorized = $type_registry->get_categorized_types();
+
+// Returns structure like:
+// [
+//     'Organization' => [
+//         'LocalBusiness' => [...types],
+//         'FoodEstablishment' => [...types],
+//         'Store' => [...types]
+//     ],
+//     'CreativeWork' => [
+//         'Article' => [...types],
+//         'WebPage' => [...types]
+//     ]
+// ]
+```
+
+#### Specialized Type Getters
+
+Get filtered sets of types for specific use cases:
+
+```php
+$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
+
+// Get only organization/business types (for organization settings)
+$org_types = $type_registry->get_organization_types();
+
+// Get organization types categorized for dropdowns
+$categorized_org = $type_registry->get_categorized_organization_types();
+// Returns user-friendly categories like:
+// - General Business
+// - Food & Dining  
+// - Retail Stores
+// - Home & Construction
+// - Medical Services
+// etc.
+
+// Get content-focused types (for posts/pages)
+$content_types = $type_registry->get_content_types();
+// Returns Article, BlogPosting, HowTo, Product, Event, etc.
 ```
 
 The registry provides 250+ comprehensive schema types including:
@@ -279,12 +327,28 @@ All types can be extended/consolidated via the `wp_schema_framework_type_registr
 Add custom schema types to the registry:
 
 ```php
-// Add custom schema types
+// Add custom schema types with categories
 add_filter('wp_schema_framework_type_registry_types', function($types) {
-    // Add a custom type
-    $types[] = ['label' => 'Podcast', 'value' => 'PodcastSeries'];
-    $types[] = ['label' => 'Online Course', 'value' => 'OnlineCourse'];
-    $types[] = ['label' => 'Webinar', 'value' => 'Webinar'];
+    // Add custom types with category metadata
+    $types[] = [
+        'label' => 'Podcast', 
+        'value' => 'PodcastSeries',
+        'category' => 'CreativeWork',
+        'subcategory' => 'PodcastSeries'
+    ];
+    $types[] = [
+        'label' => 'Coworking Space', 
+        'value' => 'CoworkingSpace',
+        'category' => 'Organization',
+        'subcategory' => 'LocalBusiness',
+        'parent' => 'LocalBusiness'
+    ];
+    $types[] = [
+        'label' => 'Webinar', 
+        'value' => 'Webinar',
+        'category' => 'Event',
+        'subcategory' => 'Event'
+    ];
     
     return $types;
 });
@@ -327,31 +391,26 @@ add_filter('wp_schema_framework_type_registry_types', function($types) {
 });
 ```
 
-Organize types for better UX:
+Organize types for better UX using built-in categories:
 
 ```php
-// Reorganize types with optgroups for select elements
-add_filter('wp_schema_framework_type_registry_types', function($types) {
-    // Group types by category for better organization
-    $grouped_types = [
-        'Content' => ['Article', 'BlogPosting', 'NewsArticle', 'HowTo'],
-        'Business' => ['LocalBusiness', 'Restaurant', 'Store', 'Hotel'],
-        'Events' => ['Event', 'MusicEvent', 'SportsEvent', 'Festival'],
-    ];
-    
-    // Convert to flat array with group indicators
-    $organized = [];
-    foreach ($grouped_types as $group => $group_types) {
-        foreach ($types as $type) {
-            if (in_array($type['value'], $group_types)) {
-                $type['group'] = $group; // Add group for organizing
-                $organized[] = $type;
-            }
-        }
+// Create optgroups using the built-in category metadata
+$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
+$categorized = $type_registry->get_categorized_organization_types();
+
+echo '<select name="organization_type">';
+foreach ($categorized as $category => $types) {
+    echo '<optgroup label="' . esc_attr($category) . '">';
+    foreach ($types as $type) {
+        echo sprintf(
+            '<option value="%s">%s</option>',
+            esc_attr($type['value']),
+            esc_html($type['label'])
+        );
     }
-    
-    return $organized;
-});
+    echo '</optgroup>';
+}
+echo '</select>';
 ```
 
 ## Requirements
