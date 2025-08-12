@@ -262,6 +262,7 @@ echo '</select>';
 ```
 
 The registry provides 250+ comprehensive schema types including:
+
 - **Content Types**: Article, BlogPosting, NewsArticle, HowTo, QAPage, TechArticle, Report
 - **Business & Services**: LocalBusiness subtypes, home services (Plumber, Electrician, etc.), professional services (Attorney, Dentist, etc.)
 - **Commerce**: Product, Service, Store types, automotive services
@@ -271,7 +272,70 @@ The registry provides 250+ comprehensive schema types including:
 - **Digital Products**: SoftwareApplication, MobileApplication, WebApplication
 - **Geographic**: Country, City, Mountain, Beach, tourist destinations
 
-All types can be extended via the `wp_schema_framework_type_registry_types` filter.
+All types can be extended/consolidated via the `wp_schema_framework_type_registry_types` filter.
+
+#### Extending the Type Registry
+
+Add custom schema types to the registry:
+
+```php
+// Add custom schema types
+add_filter('wp_schema_framework_type_registry_types', function($types) {
+    // Add a custom type
+    $types[] = ['label' => 'Podcast', 'value' => 'PodcastSeries'];
+    $types[] = ['label' => 'Online Course', 'value' => 'OnlineCourse'];
+    $types[] = ['label' => 'Webinar', 'value' => 'Webinar'];
+    
+    return $types;
+});
+```
+
+Remove or modify existing types:
+
+```php
+// Remove specific schema types
+add_filter('wp_schema_framework_type_registry_types', function($types) {
+    // Remove all Action types (not typically used as main entity)
+    $types = array_filter($types, function($type) {
+        return !str_contains($type['value'], 'Action');
+    });
+    
+    // Remove specific types
+    $remove_types = ['Cemetery', 'Canal', 'Mountain'];
+    $types = array_filter($types, function($type) use ($remove_types) {
+        return !in_array($type['value'], $remove_types);
+    });
+    
+    return $types;
+});
+```
+
+Organize types for better UX:
+
+```php
+// Reorganize types with optgroups for select elements
+add_filter('wp_schema_framework_type_registry_types', function($types) {
+    // Group types by category for better organization
+    $grouped_types = [
+        'Content' => ['Article', 'BlogPosting', 'NewsArticle', 'HowTo'],
+        'Business' => ['LocalBusiness', 'Restaurant', 'Store', 'Hotel'],
+        'Events' => ['Event', 'MusicEvent', 'SportsEvent', 'Festival'],
+    ];
+    
+    // Convert to flat array with group indicators
+    $organized = [];
+    foreach ($grouped_types as $group => $group_types) {
+        foreach ($types as $type) {
+            if (in_array($type['value'], $group_types)) {
+                $type['group'] = $group; // Add group for organizing
+                $organized[] = $type;
+            }
+        }
+    }
+    
+    return $organized;
+});
+```
 
 ## Requirements
 
