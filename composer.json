@@ -48,12 +48,14 @@
   },
   "scripts-descriptions": {
     "test": "Run PHPUnit tests",
+    "test:unit": "Run PHPUnit unit tests only",
     "test:coverage": "Run PHPUnit tests with HTML coverage report",
-    "test:watch": "Watch for changes and run tests automatically",
-    "cs": "Check code style with PHP_CodeSniffer",
-    "cs:fix": "Fix code style issues with PHP_CodeSniffer",
-    "analyze": "Run static analysis with PHPStan",
-    "check": "Run all quality checks (code style and tests)"
+    "lint": "Check code style with PHP_CodeSniffer",
+    "lint:fix": "Fix code style issues with PHP_CodeSniffer",
+    "phpcs": "Check code style with PHP_CodeSniffer",
+    "phpcs:summary": "Show summary of code style issues",
+    "phpcbf": "Fix code style issues with PHP_CodeSniffer",
+    "phpcompat": "Check PHP compatibility"
   },
   "minimum-stability": "stable",
   "prefer-stable": true
