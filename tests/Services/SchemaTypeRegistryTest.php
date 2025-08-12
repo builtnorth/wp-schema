@@ -79,20 +79,24 @@ class SchemaTypeRegistryTest extends TestCase {
 	}
 
 	/**
-	 * Test get_available_types can be filtered
+	 * Test get_available_types calls the filter
 	 */
 	public function test_get_available_types_can_be_filtered(): void {
-		// Mock apply_filters to pass through the default types
-		WP_Mock::userFunction( 'apply_filters' )
-			->with( 'wp_schema_framework_type_registry_types', \WP_Mock\Functions::type( 'array' ) )
-			->once()
-			->andReturnArg( 1 );
+		// Mock apply_filters to pass through the types
+		WP_Mock::onFilter( 'wp_schema_framework_type_registry_types' )
+			->with( \WP_Mock\Functions::type( 'array' ) )
+			->reply( function( $types ) {
+				return $types;
+			} );
 
 		$types = $this->registry->get_available_types();
 
 		// At minimum, verify we get an array with expected structure
 		$this->assertIsArray( $types );
 		$this->assertNotEmpty( $types );
+		
+		// Verify we have a lot of types now (250+)
+		$this->assertGreaterThan( 200, count( $types ) );
 	}
 
 	/**
@@ -115,14 +119,15 @@ class SchemaTypeRegistryTest extends TestCase {
 	}
 
 	/**
-	 * Test get_post_type_mappings can be filtered
+	 * Test get_post_type_mappings calls the filter
 	 */
 	public function test_get_post_type_mappings_can_be_filtered(): void {
-		// Mock apply_filters to pass through the default mappings
-		WP_Mock::userFunction( 'apply_filters' )
-			->with( 'wp_schema_framework_post_type_mappings', \WP_Mock\Functions::type( 'array' ) )
-			->once()
-			->andReturnArg( 1 );
+		// Mock apply_filters to pass through the mappings
+		WP_Mock::onFilter( 'wp_schema_framework_post_type_mappings' )
+			->with( \WP_Mock\Functions::type( 'array' ) )
+			->reply( function( $mappings ) {
+				return $mappings;
+			} );
 
 		$mappings = $this->registry->get_post_type_mappings();
 
@@ -130,6 +135,9 @@ class SchemaTypeRegistryTest extends TestCase {
 		$this->assertIsArray( $mappings );
 		$this->assertArrayHasKey( 'post', $mappings );
 		$this->assertArrayHasKey( 'page', $mappings );
+		// Verify the filter allows extension
+		$this->assertEquals( 'Article', $mappings['post'] );
+		$this->assertEquals( 'WebPage', $mappings['page'] );
 	}
 
 	/**
