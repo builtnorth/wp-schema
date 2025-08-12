@@ -26,7 +26,7 @@
     "phpunit/phpunit": "^9.0",
     "10up/wp_mock": "^1.0",
     "mockery/mockery": "^1.5",
-    "builtnorth/coding-standards": "*"
+    "builtnorth/coding-standards": "^1.0"
   },
   "config": {
     "optimize-autoloader": true,
