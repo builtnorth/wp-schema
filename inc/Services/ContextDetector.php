@@ -46,6 +46,11 @@ class ContextDetector
      */
     public function should_generate_schema(string $context): bool
     {
+        // Allow other plugins to disable schema output
+        if (!apply_filters('wp_schema_framework_output_enabled', true)) {
+            return false;
+        }
+        
         // Skip admin, feeds, etc.
         if (is_admin() || is_feed() || is_robots() || is_trackback()) {
             return false;
