@@ -25,6 +25,10 @@ class EventProvider implements SchemaProviderInterface
         
         // Auto-detect The Events Calendar (by Modern Tribe)
         if (class_exists('Tribe__Events__Main') && get_post_type() === 'tribe_events') {
+            // Check if The Events Calendar is outputting JSON-LD
+            if ($this->is_tribe_events_schema_enabled()) {
+                return false; // Let The Events Calendar handle it to avoid conflicts
+            }
             return true;
         }
         
@@ -584,6 +588,29 @@ class EventProvider implements SchemaProviderInterface
         }
         
         return $offers;
+    }
+    
+    /**
+     * Check if The Events Calendar is outputting its own schema
+     */
+    private function is_tribe_events_schema_enabled(): bool
+    {
+        // The Events Calendar uses tribe_get_option for settings
+        if (function_exists('tribe_get_option')) {
+            // Check if JSON-LD is disabled in their settings
+            $jsonld_disabled = tribe_get_option('disable_jsonld', false);
+            if ($jsonld_disabled) {
+                return false; // They disabled it, we can provide schema
+            }
+        }
+        
+        // Check if Tribe's JSON_LD class is active
+        if (class_exists('Tribe__Events__JSON_LD__Event')) {
+            // It's active by default
+            return apply_filters('wp_schema_framework_tribe_events_schema_active', true);
+        }
+        
+        return false;
     }
     
     /**

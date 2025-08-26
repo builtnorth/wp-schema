@@ -25,6 +25,11 @@ class ProductProvider implements SchemaProviderInterface
         
         // Auto-detect WooCommerce products
         if (class_exists('WooCommerce') && get_post_type() === 'product') {
+            // Check if WooCommerce is outputting its own structured data
+            // WooCommerce uses the woocommerce_structured_data_product filter
+            if ($this->is_woocommerce_schema_enabled()) {
+                return false; // Let WooCommerce handle it to avoid conflicts
+            }
             return true;
         }
         
@@ -322,6 +327,26 @@ class ProductProvider implements SchemaProviderInterface
         ];
         
         return apply_filters('wp_schema_framework_bigcommerce_product_data', $data, $product_id);
+    }
+    
+    /**
+     * Check if WooCommerce is outputting its own schema
+     */
+    private function is_woocommerce_schema_enabled(): bool
+    {
+        // Check if WooCommerce structured data is disabled via filter
+        if (apply_filters('woocommerce_structured_data_disable', false)) {
+            return false;
+        }
+        
+        // Check if the WC_Structured_Data class exists and is active
+        if (!class_exists('WC_Structured_Data')) {
+            return false;
+        }
+        
+        // WooCommerce outputs schema by default, so return true unless explicitly disabled
+        // Developers can override this with our filter
+        return apply_filters('wp_schema_framework_woocommerce_schema_active', true);
     }
     
     /**

@@ -89,7 +89,19 @@ add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $
 
 ### Product Schema Integration
 
-The ProductProvider automatically detects WooCommerce, Easy Digital Downloads, and BigCommerce products. You can also integrate custom e-commerce solutions:
+The ProductProvider automatically detects WooCommerce, Easy Digital Downloads, and BigCommerce products. 
+
+**Note**: To avoid conflicts, ProductProvider automatically disables itself when WooCommerce's built-in schema is active. To force wp-schema to handle product schema instead:
+
+```php
+// Disable WooCommerce's built-in structured data
+add_filter('woocommerce_structured_data_disable', '__return_true');
+
+// Or tell wp-schema that WooCommerce schema is not active
+add_filter('wp_schema_framework_woocommerce_schema_active', '__return_false');
+```
+
+You can also integrate custom e-commerce solutions:
 
 ```php
 // Mark custom post type as product
@@ -291,30 +303,64 @@ The system recognizes these contexts for schema generation:
 
 ## Available Hooks
 
-### Actions
+### Hooks & Filters
 
+The framework provides extensive hooks and filters for customization. Here are the most commonly used:
+
+#### Actions
 - `wp_schema_framework_register_providers` - Register custom providers
-- `wp_schema_framework_ready` - Fired when framework is fully initialized
-- `wp_schema_framework_before_output` - Before schema is output
-- `wp_schema_framework_after_output` - After schema is output
+- `wp_schema_framework_ready` - Framework initialization complete
+- `wp_schema_framework_before_output` - Before schema is output to page
+- `wp_schema_framework_after_output` - After schema has been output
 
-### Filters
-
+#### Core Filters
+- `wp_schema_framework_output_enabled` - Enable/disable schema output globally
+- `wp_schema_framework_context` - Override detected page context
 - `wp_schema_framework_pieces` - Modify final schema pieces array
 - `wp_schema_framework_graph` - Modify complete schema graph before output
-- `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `wp_schema_framework_piece_article`)
-- `wp_schema_framework_post_type_override` - Override schema type for posts/pages
+- `wp_schema_framework_json_output` - Modify final JSON-LD string before output
+- `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `article`, `product`)
+- `wp_schema_framework_piece_id_{id}` - Modify schema piece by ID (e.g., `#organization`)
+
+#### Provider Data Filters
+- `wp_schema_framework_organization_data` - Modify organization schema
+- `wp_schema_framework_organization_type` - Override organization type
+- `wp_schema_framework_website_data` - Modify website schema
+- `wp_schema_framework_website_can_provide` - Control website schema output
+- `wp_schema_framework_article_data` - Modify article schema
+- `wp_schema_framework_webpage_data` - Modify webpage schema
+- `wp_schema_framework_author_data` - Modify author/person schema
+- `wp_schema_framework_product_data` - Modify product schema
+- `wp_schema_framework_event_data` - Modify event schema
+- `wp_schema_framework_archive_data` - Modify archive schema
+- `wp_schema_framework_search_results_data` - Modify search results schema
+- `wp_schema_framework_media_data` - Modify media schema
+- `wp_schema_framework_page_type_data` - Modify specialized page type schema
+
+#### Post Type Filters
+- `wp_schema_framework_post_type_override` - Override schema type for specific posts
+- `wp_schema_framework_post_type_mapping` - Map post types to schema types
+- `wp_schema_framework_post_description` - Provide custom post descriptions
+- `wp_schema_framework_homepage_type` - Override homepage schema type
+- `wp_schema_framework_homepage_data` - Modify homepage schema data
+
+#### Detection Filters
+- `wp_schema_framework_is_product` - Custom product detection
+- `wp_schema_framework_is_event` - Custom event detection
+- `wp_schema_framework_get_product_data` - Provide custom product data
+- `wp_schema_framework_get_event_data` - Provide custom event data
+
+#### Plugin Conflict Filters
+- `wp_schema_framework_woocommerce_schema_active` - Override WooCommerce conflict detection
+- `wp_schema_framework_tribe_events_schema_active` - Override The Events Calendar conflict detection
+
+#### Specialized Filters
+- `wp_schema_framework_faq_items` - Provide FAQ items for FAQPage
+- `wp_schema_framework_collection_items` - Provide collection items
+- `wp_schema_framework_gallery_items` - Provide gallery images
 - `wp_schema_framework_available_types` - Modify available schema types for UI
-- `wp_schema_framework_organization_type_mapping` - Customize organization type mappings
-- `wp_schema_framework_organization_data` - Modify organization schema data
-- `wp_schema_framework_website_data` - Modify website schema data
-- `wp_schema_framework_article_data` - Modify article schema data
-- `wp_schema_framework_archive_data` - Modify archive schema data
-- `wp_schema_framework_search_results_data` - Modify search results schema data
-- `wp_schema_framework_media_data` - Modify media schema data
-- `wp_schema_framework_page_type_data` - Modify page type schema data
-- `wp_schema_framework_context` - Override detected context
-- `wp_schema_framework_output_enabled` - Enable/disable schema output
+
+📚 **[View Complete Hooks Reference](docs/hooks-reference.md)** - Comprehensive documentation with examples and use cases
 
 ### Schema Type Registry
 
