@@ -93,6 +93,7 @@ class App
             'website' => 'BuiltNorth\\WPSchema\\Providers\\WebsiteProvider',
             'author' => 'BuiltNorth\\WPSchema\\Providers\\AuthorProvider',
             'article' => 'BuiltNorth\\WPSchema\\Providers\\ArticleProvider',
+            'product' => 'BuiltNorth\\WPSchema\\Providers\\ProductProvider',
             'webpage' => 'BuiltNorth\\WPSchema\\Providers\\WebPageProvider',
             'archive' => 'BuiltNorth\\WPSchema\\Providers\\ArchiveProvider',
             'search' => 'BuiltNorth\\WPSchema\\Providers\\SearchResultsProvider',

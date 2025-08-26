@@ -87,6 +87,38 @@ add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $
 }, 10, 4);
 ```
 
+### Product Schema Integration
+
+The ProductProvider automatically detects WooCommerce, Easy Digital Downloads, and BigCommerce products. You can also integrate custom e-commerce solutions:
+
+```php
+// Mark custom post type as product
+add_filter('wp_schema_framework_is_product', function($is_product, $post_id, $context) {
+    return get_post_type($post_id) === 'my_product_type';
+}, 10, 3);
+
+// Provide product data for custom e-commerce
+add_filter('wp_schema_framework_get_product_data', function($data, $post_id) {
+    if (get_post_type($post_id) !== 'my_product_type') {
+        return $data;
+    }
+    
+    return [
+        'name' => get_the_title($post_id),
+        'price' => get_post_meta($post_id, 'price', true),
+        'currency' => 'USD',
+        'availability' => 'https://schema.org/InStock',
+        'sku' => get_post_meta($post_id, 'sku', true),
+        'brand' => get_post_meta($post_id, 'brand', true),
+        'aggregateRating' => [
+            'ratingValue' => get_post_meta($post_id, 'rating', true),
+            'reviewCount' => get_post_meta($post_id, 'review_count', true),
+        ],
+    ];
+}, 10, 2);
+```
+
+
 ## Provider Interface
 
 Create schema providers by implementing `SchemaProviderInterface`:
@@ -131,8 +163,9 @@ class MySchemaProvider implements SchemaProviderInterface
 ### Core Content Providers
 
 - **OrganizationProvider**: Organization/LocalBusiness schema with support for all organization types
-- **WebsiteProvider**: WebSite schema with site-wide metadata
+- **WebsiteProvider**: WebSite schema with site-wide metadata and SearchAction for sitelinks
 - **ArticleProvider**: Article, BlogPosting, and NewsArticle schema for posts
+- **ProductProvider**: Product schema with auto-detection for WooCommerce, Easy Digital Downloads, and BigCommerce
 - **AuthorProvider**: Person schema for post authors
 - **NavigationProvider**: SiteNavigationElement schema from WordPress menus
 
