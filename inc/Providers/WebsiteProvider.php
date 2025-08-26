@@ -53,18 +53,16 @@ class WebsiteProvider implements SchemaProviderInterface
             $website->set('description', $description);
         }
         
-        // Add search action for home/archive contexts
-        if (in_array($context, ['home', 'archive'], true)) {
-            $search_url = home_url('/?s={search_term_string}');
-            $website->set('potentialAction', [
-                '@type' => 'SearchAction',
-                'target' => [
-                    '@type' => 'EntryPoint',
-                    'urlTemplate' => $search_url,
-                ],
-                'query-input' => 'required name=search_term_string',
-            ]);
-        }
+        // Add search action on all pages for Google Sitelinks Searchbox
+        $search_url = home_url('/?s={search_term_string}');
+        $website->set('potentialAction', [
+            '@type' => 'SearchAction',
+            'target' => [
+                '@type' => 'EntryPoint',
+                'urlTemplate' => $search_url,
+            ],
+            'query-input' => 'required name=search_term_string',
+        ]);
         
         // Allow filtering of website data
         $data = apply_filters('wp_schema_framework_website_data', $website->to_array(), $context);

@@ -41,6 +41,9 @@ class OutputService
             return;
         }
         
+        // Fire action before output
+        do_action('wp_schema_framework_before_output', $context);
+        
         $graph = $this->graph_builder->build_for_context($context);
         
         if ($graph->is_empty()) {
@@ -48,6 +51,9 @@ class OutputService
         }
         
         $this->output_graph($graph);
+        
+        // Fire action after output
+        do_action('wp_schema_framework_after_output', $context, $graph);
     }
     
     /**
@@ -74,7 +80,13 @@ class OutputService
             $graph_data['@graph'][] = $piece_data;
         }
         
+        // Allow filtering of complete graph before output
+        $graph_data = apply_filters('wp_schema_framework_graph', $graph_data);
+        
         $json = json_encode($graph_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        
+        // Allow filtering of JSON string
+        $json = apply_filters('wp_schema_framework_json_output', $json, $graph_data);
         
         if ($json) {
             echo '<script type="application/ld+json">' . $json . '</script>' . PHP_EOL;
