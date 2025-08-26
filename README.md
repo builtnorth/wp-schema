@@ -118,6 +118,48 @@ add_filter('wp_schema_framework_get_product_data', function($data, $post_id) {
 }, 10, 2);
 ```
 
+### Event Schema Integration
+
+The EventProvider automatically detects The Events Calendar, Events Manager, Modern Events Calendar, and Event Organiser. You can also integrate custom event solutions:
+
+```php
+// Mark custom post type as event
+add_filter('wp_schema_framework_is_event', function($is_event, $post_id, $context) {
+    return get_post_type($post_id) === 'my_event_type';
+}, 10, 3);
+
+// Provide event data for custom events
+add_filter('wp_schema_framework_get_event_data', function($data, $post_id) {
+    if (get_post_type($post_id) !== 'my_event_type') {
+        return $data;
+    }
+    
+    return [
+        'name' => get_the_title($post_id),
+        'description' => get_the_excerpt($post_id),
+        'startDate' => get_post_meta($post_id, 'event_start', true), // ISO 8601 format
+        'endDate' => get_post_meta($post_id, 'event_end', true),
+        'eventStatus' => 'https://schema.org/EventScheduled',
+        'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+        'location' => [
+            'name' => get_post_meta($post_id, 'venue_name', true),
+            'address' => [
+                'streetAddress' => get_post_meta($post_id, 'venue_address', true),
+                'addressLocality' => get_post_meta($post_id, 'venue_city', true),
+                'addressRegion' => get_post_meta($post_id, 'venue_state', true),
+                'postalCode' => get_post_meta($post_id, 'venue_zip', true),
+            ],
+            'type' => 'Place'
+        ],
+        'offers' => [
+            'price' => get_post_meta($post_id, 'ticket_price', true),
+            'currency' => 'USD',
+            'availability' => 'https://schema.org/InStock',
+        ],
+    ];
+}, 10, 2);
+```
+
 
 ## Provider Interface
 
@@ -166,6 +208,7 @@ class MySchemaProvider implements SchemaProviderInterface
 - **WebsiteProvider**: WebSite schema with site-wide metadata and SearchAction for sitelinks
 - **ArticleProvider**: Article, BlogPosting, and NewsArticle schema for posts
 - **ProductProvider**: Product schema with auto-detection for WooCommerce, Easy Digital Downloads, and BigCommerce
+- **EventProvider**: Event schema with auto-detection for The Events Calendar, Events Manager, Modern Events Calendar, and Event Organiser
 - **AuthorProvider**: Person schema for post authors
 - **NavigationProvider**: SiteNavigationElement schema from WordPress menus
 

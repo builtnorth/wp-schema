@@ -94,6 +94,7 @@ class App
             'author' => 'BuiltNorth\\WPSchema\\Providers\\AuthorProvider',
             'article' => 'BuiltNorth\\WPSchema\\Providers\\ArticleProvider',
             'product' => 'BuiltNorth\\WPSchema\\Providers\\ProductProvider',
+            'event' => 'BuiltNorth\\WPSchema\\Providers\\EventProvider',
             'webpage' => 'BuiltNorth\\WPSchema\\Providers\\WebPageProvider',
             'archive' => 'BuiltNorth\\WPSchema\\Providers\\ArchiveProvider',
             'search' => 'BuiltNorth\\WPSchema\\Providers\\SearchResultsProvider',
