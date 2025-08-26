@@ -20,7 +20,7 @@ WP Schema follows a clean, modular architecture:
 - **Flexible Filtering**: Multiple filter hooks for customization at every level
 - **Reference Resolution**: Clean @id references for building complex schema graphs
 - **WordPress Core Integration**: Automatic schema for posts, pages, archives, media, and more
-- **Type Registry**: Centralized management of schema.org types with UI support
+- **Type Registry**: Comprehensive registry of 250+ schema.org types with UI support
 
 ## Installation
 
@@ -87,6 +87,92 @@ add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $
 }, 10, 4);
 ```
 
+### Product Schema Integration
+
+The ProductProvider automatically detects WooCommerce, Easy Digital Downloads, and BigCommerce products. 
+
+**Note**: To avoid conflicts, ProductProvider automatically disables itself when WooCommerce's built-in schema is active. To force wp-schema to handle product schema instead:
+
+```php
+// Disable WooCommerce's built-in structured data
+add_filter('woocommerce_structured_data_disable', '__return_true');
+
+// Or tell wp-schema that WooCommerce schema is not active
+add_filter('wp_schema_framework_woocommerce_schema_active', '__return_false');
+```
+
+You can also integrate custom e-commerce solutions:
+
+```php
+// Mark custom post type as product
+add_filter('wp_schema_framework_is_product', function($is_product, $post_id, $context) {
+    return get_post_type($post_id) === 'my_product_type';
+}, 10, 3);
+
+// Provide product data for custom e-commerce
+add_filter('wp_schema_framework_get_product_data', function($data, $post_id) {
+    if (get_post_type($post_id) !== 'my_product_type') {
+        return $data;
+    }
+    
+    return [
+        'name' => get_the_title($post_id),
+        'price' => get_post_meta($post_id, 'price', true),
+        'currency' => 'USD',
+        'availability' => 'https://schema.org/InStock',
+        'sku' => get_post_meta($post_id, 'sku', true),
+        'brand' => get_post_meta($post_id, 'brand', true),
+        'aggregateRating' => [
+            'ratingValue' => get_post_meta($post_id, 'rating', true),
+            'reviewCount' => get_post_meta($post_id, 'review_count', true),
+        ],
+    ];
+}, 10, 2);
+```
+
+### Event Schema Integration
+
+The EventProvider automatically detects The Events Calendar, Events Manager, Modern Events Calendar, and Event Organiser. You can also integrate custom event solutions:
+
+```php
+// Mark custom post type as event
+add_filter('wp_schema_framework_is_event', function($is_event, $post_id, $context) {
+    return get_post_type($post_id) === 'my_event_type';
+}, 10, 3);
+
+// Provide event data for custom events
+add_filter('wp_schema_framework_get_event_data', function($data, $post_id) {
+    if (get_post_type($post_id) !== 'my_event_type') {
+        return $data;
+    }
+    
+    return [
+        'name' => get_the_title($post_id),
+        'description' => get_the_excerpt($post_id),
+        'startDate' => get_post_meta($post_id, 'event_start', true), // ISO 8601 format
+        'endDate' => get_post_meta($post_id, 'event_end', true),
+        'eventStatus' => 'https://schema.org/EventScheduled',
+        'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+        'location' => [
+            'name' => get_post_meta($post_id, 'venue_name', true),
+            'address' => [
+                'streetAddress' => get_post_meta($post_id, 'venue_address', true),
+                'addressLocality' => get_post_meta($post_id, 'venue_city', true),
+                'addressRegion' => get_post_meta($post_id, 'venue_state', true),
+                'postalCode' => get_post_meta($post_id, 'venue_zip', true),
+            ],
+            'type' => 'Place'
+        ],
+        'offers' => [
+            'price' => get_post_meta($post_id, 'ticket_price', true),
+            'currency' => 'USD',
+            'availability' => 'https://schema.org/InStock',
+        ],
+    ];
+}, 10, 2);
+```
+
+
 ## Provider Interface
 
 Create schema providers by implementing `SchemaProviderInterface`:
@@ -131,8 +217,10 @@ class MySchemaProvider implements SchemaProviderInterface
 ### Core Content Providers
 
 - **OrganizationProvider**: Organization/LocalBusiness schema with support for all organization types
-- **WebsiteProvider**: WebSite schema with site-wide metadata
+- **WebsiteProvider**: WebSite schema with site-wide metadata and SearchAction for sitelinks
 - **ArticleProvider**: Article, BlogPosting, and NewsArticle schema for posts
+- **ProductProvider**: Product schema with auto-detection for WooCommerce, Easy Digital Downloads, and BigCommerce
+- **EventProvider**: Event schema with auto-detection for The Events Calendar, Events Manager, Modern Events Calendar, and Event Organiser
 - **AuthorProvider**: Person schema for post authors
 - **NavigationProvider**: SiteNavigationElement schema from WordPress menus
 
@@ -215,30 +303,64 @@ The system recognizes these contexts for schema generation:
 
 ## Available Hooks
 
-### Actions
+### Hooks & Filters
 
+The framework provides extensive hooks and filters for customization. Here are the most commonly used:
+
+#### Actions
 - `wp_schema_framework_register_providers` - Register custom providers
-- `wp_schema_framework_ready` - Fired when framework is fully initialized
-- `wp_schema_framework_before_output` - Before schema is output
-- `wp_schema_framework_after_output` - After schema is output
+- `wp_schema_framework_ready` - Framework initialization complete
+- `wp_schema_framework_before_output` - Before schema is output to page
+- `wp_schema_framework_after_output` - After schema has been output
 
-### Filters
-
+#### Core Filters
+- `wp_schema_framework_output_enabled` - Enable/disable schema output globally
+- `wp_schema_framework_context` - Override detected page context
 - `wp_schema_framework_pieces` - Modify final schema pieces array
 - `wp_schema_framework_graph` - Modify complete schema graph before output
-- `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `wp_schema_framework_piece_article`)
-- `wp_schema_framework_post_type_override` - Override schema type for posts/pages
+- `wp_schema_framework_json_output` - Modify final JSON-LD string before output
+- `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `article`, `product`)
+- `wp_schema_framework_piece_id_{id}` - Modify schema piece by ID (e.g., `#organization`)
+
+#### Provider Data Filters
+- `wp_schema_framework_organization_data` - Modify organization schema
+- `wp_schema_framework_organization_type` - Override organization type
+- `wp_schema_framework_website_data` - Modify website schema
+- `wp_schema_framework_website_can_provide` - Control website schema output
+- `wp_schema_framework_article_data` - Modify article schema
+- `wp_schema_framework_webpage_data` - Modify webpage schema
+- `wp_schema_framework_author_data` - Modify author/person schema
+- `wp_schema_framework_product_data` - Modify product schema
+- `wp_schema_framework_event_data` - Modify event schema
+- `wp_schema_framework_archive_data` - Modify archive schema
+- `wp_schema_framework_search_results_data` - Modify search results schema
+- `wp_schema_framework_media_data` - Modify media schema
+- `wp_schema_framework_page_type_data` - Modify specialized page type schema
+
+#### Post Type Filters
+- `wp_schema_framework_post_type_override` - Override schema type for specific posts
+- `wp_schema_framework_post_type_mapping` - Map post types to schema types
+- `wp_schema_framework_post_description` - Provide custom post descriptions
+- `wp_schema_framework_homepage_type` - Override homepage schema type
+- `wp_schema_framework_homepage_data` - Modify homepage schema data
+
+#### Detection Filters
+- `wp_schema_framework_is_product` - Custom product detection
+- `wp_schema_framework_is_event` - Custom event detection
+- `wp_schema_framework_get_product_data` - Provide custom product data
+- `wp_schema_framework_get_event_data` - Provide custom event data
+
+#### Plugin Conflict Filters
+- `wp_schema_framework_woocommerce_schema_active` - Override WooCommerce conflict detection
+- `wp_schema_framework_tribe_events_schema_active` - Override The Events Calendar conflict detection
+
+#### Specialized Filters
+- `wp_schema_framework_faq_items` - Provide FAQ items for FAQPage
+- `wp_schema_framework_collection_items` - Provide collection items
+- `wp_schema_framework_gallery_items` - Provide gallery images
 - `wp_schema_framework_available_types` - Modify available schema types for UI
-- `wp_schema_framework_organization_type_mapping` - Customize organization type mappings
-- `wp_schema_framework_organization_data` - Modify organization schema data
-- `wp_schema_framework_website_data` - Modify website schema data
-- `wp_schema_framework_article_data` - Modify article schema data
-- `wp_schema_framework_archive_data` - Modify archive schema data
-- `wp_schema_framework_search_results_data` - Modify search results schema data
-- `wp_schema_framework_media_data` - Modify media schema data
-- `wp_schema_framework_page_type_data` - Modify page type schema data
-- `wp_schema_framework_context` - Override detected context
-- `wp_schema_framework_output_enabled` - Enable/disable schema output
+
+📚 **[View Complete Hooks Reference](docs/hooks-reference.md)** - Comprehensive documentation with examples and use cases
 
 ### Schema Type Registry
 
@@ -247,7 +369,7 @@ Access available schema types for UI elements like dropdowns in admin settings:
 ```php
 // Get available schema types
 $types = apply_filters('wp_schema_framework_available_types', []);
-// Returns array of ['label' => 'Article', 'value' => 'Article'] items
+// Returns array with label, value, category, subcategory, and parent fields
 
 // Example: Creating a schema type dropdown in admin
 echo '<select name="schema_type">';
@@ -261,7 +383,157 @@ foreach ($types as $type) {
 echo '</select>';
 ```
 
-This provides 30+ common schema types (Article, Product, LocalBusiness, Event, etc.) and can be extended via filters.
+#### Categorized Schema Types
+
+The registry now includes category metadata for better organization:
+
+```php
+// Get types organized by category
+$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
+$categorized = $type_registry->get_categorized_types();
+
+// Returns structure like:
+// [
+//     'Organization' => [
+//         'LocalBusiness' => [...types],
+//         'FoodEstablishment' => [...types],
+//         'Store' => [...types]
+//     ],
+//     'CreativeWork' => [
+//         'Article' => [...types],
+//         'WebPage' => [...types]
+//     ]
+// ]
+```
+
+#### Specialized Type Getters
+
+Get filtered sets of types for specific use cases:
+
+```php
+$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
+
+// Get only organization/business types (for organization settings)
+$org_types = $type_registry->get_organization_types();
+
+// Get organization types categorized for dropdowns
+$categorized_org = $type_registry->get_categorized_organization_types();
+// Returns user-friendly categories like:
+// - General Business
+// - Food & Dining  
+// - Retail Stores
+// - Home & Construction
+// - Medical Services
+// etc.
+
+// Get content-focused types (for posts/pages)
+$content_types = $type_registry->get_content_types();
+// Returns Article, BlogPosting, HowTo, Product, Event, etc.
+```
+
+The registry provides 250+ comprehensive schema types including:
+
+- **Content Types**: Article, BlogPosting, NewsArticle, HowTo, QAPage, TechArticle, Report
+- **Business & Services**: LocalBusiness subtypes, home services (Plumber, Electrician, etc.), professional services (Attorney, Dentist, etc.)
+- **Commerce**: Product, Service, Store types, automotive services
+- **Places & Venues**: Restaurant, Hotel, Museum, Zoo, Park, recreational facilities
+- **Events**: 20+ event subtypes including BusinessEvent, MusicEvent, SportsEvent
+- **Media & Creative Works**: Various media types, artwork, publications
+- **Digital Products**: SoftwareApplication, MobileApplication, WebApplication
+- **Geographic**: Country, City, Mountain, Beach, tourist destinations
+
+All types can be extended/consolidated via the `wp_schema_framework_type_registry_types` filter.
+
+#### Extending the Type Registry
+
+Add custom schema types to the registry:
+
+```php
+// Add custom schema types with categories
+add_filter('wp_schema_framework_type_registry_types', function($types) {
+    // Add custom types with category metadata
+    $types[] = [
+        'label' => 'Podcast', 
+        'value' => 'PodcastSeries',
+        'category' => 'CreativeWork',
+        'subcategory' => 'PodcastSeries'
+    ];
+    $types[] = [
+        'label' => 'Coworking Space', 
+        'value' => 'CoworkingSpace',
+        'category' => 'Organization',
+        'subcategory' => 'LocalBusiness',
+        'parent' => 'LocalBusiness'
+    ];
+    $types[] = [
+        'label' => 'Webinar', 
+        'value' => 'Webinar',
+        'category' => 'Event',
+        'subcategory' => 'Event'
+    ];
+    
+    return $types;
+});
+```
+
+Replace with a custom curated list:
+
+```php
+// Replace entire registry with your own curated list
+add_filter('wp_schema_framework_type_registry_types', function($types) {
+    // Ignore default types and define only what you need
+    return [
+        ['label' => 'Article', 'value' => 'Article'],
+        ['label' => 'Product', 'value' => 'Product'],
+        ['label' => 'LocalBusiness', 'value' => 'LocalBusiness'],
+        ['label' => 'Event', 'value' => 'Event'],
+        ['label' => 'Person', 'value' => 'Person'],
+        ['label' => 'Organization', 'value' => 'Organization'],
+    ];
+});
+```
+
+Remove or modify existing types:
+
+```php
+// Remove specific schema types from existing list
+add_filter('wp_schema_framework_type_registry_types', function($types) {
+    // Remove all Action types (not typically used as main entity)
+    $types = array_filter($types, function($type) {
+        return !str_contains($type['value'], 'Action');
+    });
+    
+    // Remove specific types
+    $remove_types = ['Cemetery', 'Canal', 'Mountain'];
+    $types = array_filter($types, function($type) use ($remove_types) {
+        return !in_array($type['value'], $remove_types);
+    });
+    
+    return $types;
+});
+```
+
+Organize types for better UX using built-in categories:
+
+```php
+// Create optgroups using the built-in category metadata
+$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
+$categorized = $type_registry->get_categorized_organization_types();
+
+echo '<select name="organization_type">';
+foreach ($categorized as $category => $types) {
+    echo '<optgroup label="' . esc_attr($category) . '">';
+    foreach ($types as $type) {
+        echo sprintf(
+            '<option value="%s">%s</option>',
+            esc_attr($type['value']),
+            esc_html($type['label'])
+        );
+    }
+    echo '</optgroup>';
+}
+echo '</select>';
+```
 
 ## Requirements
 
