@@ -201,6 +201,14 @@ class EventProvider implements SchemaProviderInterface
             }
         }
         
+        // Auto-detect GatherPress
+        if (class_exists('GatherPress/Core/Event')) {
+            $data = $this->get_gatherpress_data();
+            if (!empty($data)) {
+                return $data;
+            }
+        }
+        
         return [];
     }
     
