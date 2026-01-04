@@ -52,6 +52,11 @@ class EventProvider implements SchemaProviderInterface
             return true;
         }
         
+        // Auto-detect GatherPress
+        if (class_exists('GatherPress/Core/Event') && get_post_type() === 'gatherpress_event') {
+            return true;
+        }
+        
         // Allow custom integration via filter
         return apply_filters('wp_schema_framework_is_event', false, get_the_ID(), $context);
     }
