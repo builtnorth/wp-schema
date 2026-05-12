@@ -52,6 +52,11 @@ class EventProvider implements SchemaProviderInterface
             return true;
         }
         
+        // Auto-detect GatherPress
+        if (class_exists('\GatherPress\Core\Event') && get_post_type() === 'gatherpress_event') {
+            return true;
+        }
+        
         // Allow custom integration via filter
         return apply_filters('wp_schema_framework_is_event', false, get_the_ID(), $context);
     }
@@ -191,6 +196,14 @@ class EventProvider implements SchemaProviderInterface
         // Auto-detect Event Organiser
         if (function_exists('eventorganiser_is_event')) {
             $data = $this->get_event_organiser_data();
+            if (!empty($data)) {
+                return $data;
+            }
+        }
+        
+        // Auto-detect GatherPress
+        if (class_exists('\GatherPress\Core\Event')) {
+            $data = $this->get_gatherpress_data();
             if (!empty($data)) {
                 return $data;
             }
@@ -431,6 +444,73 @@ class EventProvider implements SchemaProviderInterface
         }
         
         return apply_filters('wp_schema_framework_event_organiser_data', $data, $event_id);
+    }
+    
+    /**
+     * Get GatherPress data
+     */
+    private function get_gatherpress_data(): array
+    {
+        if (!class_exists('\GatherPress\Core\Event')) {
+            return [];
+        }
+        $event = new \GatherPress\Core\Event(get_the_ID());
+        if (!$event->event instanceof \WP_Post) {
+            return [];
+        }
+        $data = [
+            'name' => $event->event->post_title,
+            'description' => $event->event->post_excerpt ?: wp_trim_words($event->event->post_content, 50),
+            'startDate' => $event->get_datetime_start('c'),
+            'endDate' => $event->get_datetime_end('c'),
+            'url' => get_permalink($event->event->ID),
+        ];
+        
+        // Determine event type
+        $categories = get_the_terms($event->event->ID, 'gatherpress_topic');
+        if (!empty($categories)) {
+            $data['eventType'] = $this->determine_event_type($categories[0]->name);
+        }
+        
+        // Check if online event
+        $venue_information = $event->get_venue_information();
+        if ($venue_information['is_online_event']) {
+            $data['eventAttendanceMode'] = 'https://schema.org/OnlineEventAttendanceMode';
+            // GatherPress provides the virtual URL only to RSVPed users.
+        } else {
+            $data['eventAttendanceMode'] = 'https://schema.org/OfflineEventAttendanceMode';
+        }
+        
+        // Add location if available
+        if ($venue_information['name'] && $venue_information['full_address']) {
+            $data['location'] = [
+                'name' => $venue_information['name'],
+                'address' => [
+                    // Using the full address as streetAddress
+                    // is probably the safest way, until GatherPress provides structured address data.
+                    // See: https://github.com/GatherPress/gatherpress/issues/1264
+                    'streetAddress' => $venue_information['full_address'],
+                ],
+                'type' => 'Place'
+            ];
+        }
+        // Add location telephone if available
+        if (isset($data['location']) && $venue_information['phone_number']) {
+            $data['location']['telephone'] = $venue_information['phone_number'];
+        }
+        // Add location website if any available
+        if (isset($data['location']) && ( $venue_information['permalink'] || $venue_information['website'] )) {
+            $data['location']['url'] = $venue_information['website'] ?? $venue_information['permalink'];
+        }
+        // Add location geo data if available
+        if (isset($data['location']) && $venue_information['latitude'] && $venue_information['longitude']) {
+            $data['location']['geo'] = [
+                'latitude' => $venue_information['latitude'],
+                'longitude' => $venue_information['longitude'],
+            ];
+        }
+        
+        return apply_filters('wp_schema_framework_gatherpress_data', $data, $event);
     }
     
     /**
