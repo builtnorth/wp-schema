@@ -18,27 +18,23 @@ class ContextDetector
      */
     public function get_current_context(): string
     {
+        $context = 'unknown';
+
         if (is_front_page()) {
-            return 'home';
+            $context = 'home';
+        } elseif (is_attachment()) {
+            $context = 'attachment';
+        } elseif (is_singular()) {
+            $context = 'singular';
+        } elseif (is_search()) {
+            $context = 'search';
+        } elseif (is_archive() || is_home()) {
+            $context = 'archive';
+        } elseif (is_404()) {
+            $context = '404';
         }
-        
-        if (is_singular()) {
-            return 'singular';
-        }
-        
-        if (is_archive() || is_home()) {
-            return 'archive';
-        }
-        
-        if (is_search()) {
-            return 'search';
-        }
-        
-        if (is_404()) {
-            return '404';
-        }
-        
-        return 'unknown';
+
+        return apply_filters('wp_schema_framework_context', $context);
     }
     
     /**

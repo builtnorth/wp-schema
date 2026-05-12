@@ -19,8 +19,8 @@ class MediaProvider implements SchemaProviderInterface
 {
     public function can_provide(string $context): bool
     {
-        // Only provide for singular attachment pages
-        return $context === 'singular' && is_attachment();
+        // Only provide for attachment pages
+        return in_array($context, ['singular', 'attachment'], true) && is_attachment();
     }
     
     public function get_pieces(string $context): array

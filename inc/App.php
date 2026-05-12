@@ -9,6 +9,7 @@ use BuiltNorth\WPSchema\Services\GraphBuilder;
 use BuiltNorth\WPSchema\Services\OutputService;
 use BuiltNorth\WPSchema\Services\ContextDetector;
 use BuiltNorth\WPSchema\Services\SchemaTypeRegistry;
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 
 /**
  * Main App class for WP Schema package
@@ -120,6 +121,10 @@ class App
     public static function register_provider(string $name, string $class_name): bool
     {
         $instance = self::instance();
+
+        if (!$instance->is_initialized()) {
+            $instance->init();
+        }
         
         if (!class_exists($class_name)) {
             return false;
@@ -127,9 +132,12 @@ class App
         
         try {
             $provider = new $class_name();
+            if (!$provider instanceof SchemaProviderInterface) {
+                return false;
+            }
             $instance->registry->register($name, $provider);
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return false;
         }
     }

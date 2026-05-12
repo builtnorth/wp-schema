@@ -121,6 +121,46 @@ class AppTest extends TestCase
         $this->assertFalse($result, 'Provider registration should fail for non-existent class');
     }
 
+    public function testRegisterProviderBeforeInitialization(): void
+    {
+        // register_provider now initializes app if needed
+        WP_Mock::userFunction('do_action')->andReturn(null);
+        WP_Mock::userFunction('add_filter')->andReturn(true);
+        WP_Mock::userFunction('add_action')->andReturn(true);
+
+        $mockProviderClass = 'PreInitMockProvider_' . uniqid();
+        eval("
+            class {$mockProviderClass} implements \\BuiltNorth\\WPSchema\\Contracts\\SchemaProviderInterface {
+                public function can_provide(string \$context): bool { return true; }
+                public function get_pieces(string \$context): array { return []; }
+                public function get_priority(): int { return 10; }
+            }
+        ");
+
+        $result = App::register_provider('preinit_provider', $mockProviderClass);
+
+        $this->assertTrue($result, 'Provider registration should succeed before explicit initialization');
+        $this->assertTrue(App::instance()->is_initialized(), 'App should be initialized automatically');
+    }
+
+    public function testRegisterProviderWithClassNotImplementingInterface(): void
+    {
+        WP_Mock::userFunction('do_action')->andReturn(null);
+        WP_Mock::userFunction('add_filter')->andReturn(true);
+        WP_Mock::userFunction('add_action')->andReturn(true);
+
+        $invalidClass = 'InvalidProvider_' . uniqid();
+        eval("
+            class {$invalidClass} {
+                public function can_provide(string \$context): bool { return true; }
+            }
+        ");
+
+        $result = App::register_provider('invalid_provider', $invalidClass);
+
+        $this->assertFalse($result, 'Provider registration should fail when class does not implement SchemaProviderInterface');
+    }
+
     public function testDoubleInitialization(): void
     {
         // Mock the WordPress functions called during initialization

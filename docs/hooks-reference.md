@@ -165,9 +165,11 @@ Modify a specific schema piece by ID.
 - `$piece` (SchemaPiece) - The schema piece
 - `$context` (string) - Current page context
 
+**Note:** Piece IDs are sanitized for hook names (`#` removed and `/`/`:` replaced with `_`), so `#organization` maps to `organization`.
+
 **Usage:**
 ```php
-add_filter('wp_schema_framework_piece_id_#organization', function($piece, $context) {
+add_filter('wp_schema_framework_piece_id_organization', function($piece, $context) {
     $piece->set('telephone', '+1234567890');
     return $piece;
 }, 10, 2);

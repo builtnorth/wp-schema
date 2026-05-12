@@ -320,7 +320,7 @@ The framework provides extensive hooks and filters for customization. Here are t
 - `wp_schema_framework_graph` - Modify complete schema graph before output
 - `wp_schema_framework_json_output` - Modify final JSON-LD string before output
 - `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `article`, `product`)
-- `wp_schema_framework_piece_id_{id}` - Modify schema piece by ID (e.g., `#organization`)
+- `wp_schema_framework_piece_id_{id}` - Modify schema piece by ID (sanitized, e.g., `organization` for `#organization`)
 
 #### Provider Data Filters
 - `wp_schema_framework_organization_data` - Modify organization schema
