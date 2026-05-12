@@ -113,42 +113,72 @@ class ArticleProvider implements SchemaProviderInterface
         if (!$post) {
             return [];
         }
-        
+
         // Get schema type
         $default_type = $this->get_default_schema_type($post->post_type);
         $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
-        
-        // Create article piece
+
         $article = new SchemaPiece('#article', $schema_type);
-        
+
         $article
             ->set('headline', $post->post_title)
             ->set('name', $post->post_title)
             ->set('url', get_permalink($post->ID))
             ->set('datePublished', get_the_date('c', $post->ID))
             ->set('dateModified', get_the_modified_date('c', $post->ID))
+            ->set('mainEntityOfPage', ['@type' => 'WebPage', '@id' => get_permalink($post->ID)])
+            ->set('inLanguage', get_bloginfo('language'))
             ->add_reference('author', '#author')
-            ->add_reference('publisher', '#organization');
-        
-        // Add description from filter or excerpt
+            ->add_reference('publisher', '#organization')
+            ->add_reference('isPartOf', '#website');
+
+        // Description from filter or excerpt
         $description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);
         if ($description) {
             $article->set('description', $description);
         } elseif ($post->post_excerpt) {
             $article->set('description', wp_strip_all_tags($post->post_excerpt));
         }
-        
-        // Add featured image
-        if (has_post_thumbnail($post->ID)) {
-            $image_url = get_the_post_thumbnail_url($post->ID, 'full');
+
+        // Featured image with dimensions
+        $thumb_id = get_post_thumbnail_id($post->ID);
+        if ($thumb_id) {
+            $image_url = wp_get_attachment_image_url($thumb_id, 'full');
             if ($image_url) {
-                $article->set('image', [
-                    '@type' => 'ImageObject',
-                    'url' => $image_url,
-                ]);
+                $image_data = ['@type' => 'ImageObject', 'url' => $image_url];
+                $metadata = wp_get_attachment_metadata($thumb_id);
+                if (!empty($metadata['width'])) {
+                    $image_data['width'] = $metadata['width'];
+                }
+                if (!empty($metadata['height'])) {
+                    $image_data['height'] = $metadata['height'];
+                }
+                $article->set('image', $image_data);
             }
         }
-        
+
+        // Keywords from post tags
+        $tags = get_the_tags($post->ID);
+        if ($tags) {
+            $article->set('keywords', implode(', ', array_map(fn($tag) => $tag->name, $tags)));
+        }
+
+        // Article section from primary category
+        $categories = get_the_category($post->ID);
+        if ($categories) {
+            $article->set('articleSection', $categories[0]->name);
+        }
+
+        // Word count
+        $word_count = str_word_count(wp_strip_all_tags($post->post_content));
+        if ($word_count > 0) {
+            $article->set('wordCount', $word_count);
+        }
+
+        // Allow filtering — also gives polaris-seo a chance to add image fallback etc.
+        $data = apply_filters('wp_schema_framework_article_data', $article->to_array(), $post->ID, $post);
+        $article->from_array($data);
+
         return [$article];
     }
     

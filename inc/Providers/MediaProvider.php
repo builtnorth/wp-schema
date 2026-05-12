@@ -19,8 +19,7 @@ class MediaProvider implements SchemaProviderInterface
 {
     public function can_provide(string $context): bool
     {
-        // Only provide for singular attachment pages
-        return $context === 'singular' && is_attachment();
+        return $context === 'attachment';
     }
     
     public function get_pieces(string $context): array
@@ -309,8 +308,8 @@ class MediaProvider implements SchemaProviderInterface
     {
         $hours = floor($seconds / 3600);
         $minutes = floor(($seconds % 3600) / 60);
-        $seconds = $seconds % 60;
-        
+        $secs = $seconds % 60;
+
         $duration = 'PT';
         if ($hours > 0) {
             $duration .= $hours . 'H';
@@ -318,10 +317,10 @@ class MediaProvider implements SchemaProviderInterface
         if ($minutes > 0) {
             $duration .= $minutes . 'M';
         }
-        if ($seconds > 0) {
-            $duration .= $seconds . 'S';
+        if ($secs > 0 || $duration === 'PT') {
+            $duration .= $secs . 'S';
         }
-        
+
         return $duration;
     }
 }

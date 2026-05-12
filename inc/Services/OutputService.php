@@ -83,7 +83,8 @@ class OutputService
         // Allow filtering of complete graph before output
         $graph_data = apply_filters('wp_schema_framework_graph', $graph_data);
         
-        $json = json_encode($graph_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // JSON_HEX_TAG prevents </script> breakout inside <script type="application/ld+json">
+        $json = json_encode($graph_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         
         // Allow filtering of JSON string
         $json = apply_filters('wp_schema_framework_json_output', $json, $graph_data);
