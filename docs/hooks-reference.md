@@ -82,7 +82,7 @@ add_filter('wp_schema_framework_output_enabled', function($enabled) {
 Override the detected page context.
 
 **Parameters:**
-- `$context` (string) - Detected context ('home', 'singular', 'archive', 'search', 'error')
+- `$context` (string) - Detected context ('home', 'singular', 'attachment', 'archive', 'search', '404', 'unknown')
 
 **Usage:**
 ```php
@@ -167,7 +167,8 @@ Modify a specific schema piece by ID.
 
 **Usage:**
 ```php
-add_filter('wp_schema_framework_piece_id_#organization', function($piece, $context) {
+// Note: '#' is stripped from IDs when building the hook name, so '#organization' becomes 'organization'
+add_filter('wp_schema_framework_piece_id_organization', function($piece, $context) {
     $piece->set('telephone', '+1234567890');
     return $piece;
 }, 10, 2);
