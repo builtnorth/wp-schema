@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BuiltNorth\WPSchema;
 
+use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Services\ProviderRegistry;
 use BuiltNorth\WPSchema\Services\GraphBuilder;
 use BuiltNorth\WPSchema\Services\OutputService;
@@ -60,11 +61,13 @@ class App
         
         // Initialize output hooks
         $this->output_service->init();
-        
+
+        // Mark initialized before firing the action so register_provider() works
+        // during wp_schema_framework_register_providers callbacks.
+        $this->initialized = true;
+
         // Allow plugins to register providers
         do_action('wp_schema_framework_register_providers', $this);
-        
-        $this->initialized = true;
         
         // Framework is ready
         do_action('wp_schema_framework_ready', $this);
@@ -120,16 +123,25 @@ class App
     public static function register_provider(string $name, string $class_name): bool
     {
         $instance = self::instance();
-        
+
+        // Registry is only available after init(); return false instead of crashing.
+        if (!$instance->initialized) {
+            return false;
+        }
+
         if (!class_exists($class_name)) {
             return false;
         }
-        
+
+        if (!is_a($class_name, SchemaProviderInterface::class, true)) {
+            return false;
+        }
+
         try {
             $provider = new $class_name();
             $instance->registry->register($name, $provider);
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return false;
         }
     }

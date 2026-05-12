@@ -40,7 +40,15 @@ class GraphBuilder
         
         // Apply filters for extensibility
         $graph->apply_filters($context);
-        
+
+        // Surface dangling references as error_log entries during development
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            foreach ($graph->validate_references() as $error) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                error_log('[WP Schema] ' . $error);
+            }
+        }
+
         return $graph;
     }
 }

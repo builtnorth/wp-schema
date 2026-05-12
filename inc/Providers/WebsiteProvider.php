@@ -46,11 +46,17 @@ class WebsiteProvider implements SchemaProviderInterface
             ->set('name', get_bloginfo('name'))
             ->set('url', home_url('/'))
             ->add_reference('publisher', '#organization');
-        
+
         // Add description if available
         $description = get_bloginfo('description');
         if ($description) {
             $website->set('description', $description);
+        }
+
+        // Language
+        $language = get_bloginfo('language');
+        if ($language) {
+            $website->set('inLanguage', $language);
         }
         
         // Add search action on all pages for Google Sitelinks Searchbox

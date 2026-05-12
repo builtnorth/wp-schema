@@ -53,15 +53,16 @@ class WebPageProvider implements SchemaProviderInterface
                 ->set('name', get_bloginfo('name'))
                 ->set('headline', get_bloginfo('name'))
                 ->set('url', home_url())
+                ->set('inLanguage', get_bloginfo('language'))
                 ->add_reference('publisher', '#organization')
                 ->add_reference('isPartOf', '#website');
-            
+
             // Add description
             $description = get_bloginfo('description');
             if ($description) {
                 $webpage->set('description', $description);
             }
-            
+
             // If front page is a static page
             if (get_option('show_on_front') === 'page') {
                 $page_id = get_option('page_on_front');
@@ -69,31 +70,39 @@ class WebPageProvider implements SchemaProviderInterface
                     $post = get_post($page_id);
                     if ($post) {
                         $webpage->set('headline', $post->post_title);
-                        
+
                         if ($post->post_excerpt) {
                             $webpage->set('description', wp_strip_all_tags($post->post_excerpt));
                         }
-                        
+
                         $webpage
                             ->set('datePublished', get_the_date('c', $page_id))
                             ->set('dateModified', get_the_modified_date('c', $page_id));
-                        
-                        if (has_post_thumbnail($page_id)) {
-                            $image_url = get_the_post_thumbnail_url($page_id, 'full');
+
+                        $thumb_id = get_post_thumbnail_id($page_id);
+                        if ($thumb_id) {
+                            $image_url = wp_get_attachment_image_url($thumb_id, 'full');
                             if ($image_url) {
-                                $webpage->set('image', [
-                                    '@type' => 'ImageObject',
-                                    'url' => $image_url,
-                                ]);
+                                $image_data = ['@type' => 'ImageObject', 'url' => $image_url];
+                                $metadata = wp_get_attachment_metadata($thumb_id);
+                                if (!empty($metadata['width'])) {
+                                    $image_data['width'] = $metadata['width'];
+                                }
+                                if (!empty($metadata['height'])) {
+                                    $image_data['height'] = $metadata['height'];
+                                }
+                                $webpage->set('image', $image_data);
                             }
                         }
                     }
                 }
             }
             
-            // Add breadcrumb reference
-            $webpage->add_reference('breadcrumb', '#breadcrumb');
-            
+            // Only add breadcrumb reference if a BreadcrumbList will be in the graph
+            if (apply_filters('wp_schema_framework_has_breadcrumb', false)) {
+                $webpage->add_reference('breadcrumb', '#breadcrumb');
+            }
+
             // Allow filtering of homepage data
             $data = apply_filters('wp_schema_framework_homepage_data', $webpage->to_array());
             $data = apply_filters('wp_schema_framework_webpage_data', $data, 0, null);
@@ -121,10 +130,11 @@ class WebPageProvider implements SchemaProviderInterface
             ->set('url', get_permalink($post->ID))
             ->set('datePublished', get_the_date('c', $post->ID))
             ->set('dateModified', get_the_modified_date('c', $post->ID))
+            ->set('inLanguage', get_bloginfo('language'))
             ->add_reference('author', '#author')
             ->add_reference('publisher', '#organization')
             ->add_reference('isPartOf', '#website');
-        
+
         // Add description from filter or excerpt
         $description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);
         if ($description) {
@@ -132,21 +142,29 @@ class WebPageProvider implements SchemaProviderInterface
         } elseif ($post->post_excerpt) {
             $webpage->set('description', wp_strip_all_tags($post->post_excerpt));
         }
-        
-        // Add featured image
-        if (has_post_thumbnail($post->ID)) {
-            $image_url = get_the_post_thumbnail_url($post->ID, 'full');
+
+        // Featured image with dimensions
+        $thumb_id = get_post_thumbnail_id($post->ID);
+        if ($thumb_id) {
+            $image_url = wp_get_attachment_image_url($thumb_id, 'full');
             if ($image_url) {
-                $webpage->set('image', [
-                    '@type' => 'ImageObject',
-                    'url' => $image_url,
-                ]);
+                $image_data = ['@type' => 'ImageObject', 'url' => $image_url];
+                $metadata = wp_get_attachment_metadata($thumb_id);
+                if (!empty($metadata['width'])) {
+                    $image_data['width'] = $metadata['width'];
+                }
+                if (!empty($metadata['height'])) {
+                    $image_data['height'] = $metadata['height'];
+                }
+                $webpage->set('image', $image_data);
             }
         }
         
-        // Add breadcrumb reference
-        $webpage->add_reference('breadcrumb', '#breadcrumb');
-        
+        // Only add breadcrumb reference if a BreadcrumbList will be in the graph
+        if (apply_filters('wp_schema_framework_has_breadcrumb', false)) {
+            $webpage->add_reference('breadcrumb', '#breadcrumb');
+        }
+
         // Allow filtering of webpage data
         $data = apply_filters('wp_schema_framework_webpage_data', $webpage->to_array(), $post->ID, $post);
         $webpage->from_array($data);

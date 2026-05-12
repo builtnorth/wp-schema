@@ -127,11 +127,66 @@ class AppTest extends TestCase
         WP_Mock::userFunction('do_action')->andReturn(null);
         WP_Mock::userFunction('add_filter')->andReturn(true);
         WP_Mock::userFunction('add_action')->andReturn(true);
-        
+
         $app = App::initialize();
         $app->init(); // Second initialization
-        
+
         // Should not throw an error
         $this->assertTrue($app->is_initialized());
+    }
+
+    public function testRegisterProviderRejectsClassWithoutInterface(): void
+    {
+        WP_Mock::userFunction('do_action')->andReturn(null);
+        WP_Mock::userFunction('add_filter')->andReturn(true);
+        WP_Mock::userFunction('add_action')->andReturn(true);
+
+        App::initialize();
+
+        // A real class that exists but does NOT implement SchemaProviderInterface
+        $result = App::register_provider('bad_provider', \stdClass::class);
+
+        $this->assertFalse($result, 'Should reject class that does not implement SchemaProviderInterface');
+    }
+
+    public function testRegisterProviderHandlesThrowable(): void
+    {
+        WP_Mock::userFunction('do_action')->andReturn(null);
+        WP_Mock::userFunction('add_filter')->andReturn(true);
+        WP_Mock::userFunction('add_action')->andReturn(true);
+
+        App::initialize();
+
+        // Create a class whose constructor throws a TypeError (Throwable, not Exception)
+        $throwableClass = 'ThrowableProvider_' . uniqid();
+        eval("
+            class {$throwableClass} implements \\BuiltNorth\\WPSchema\\Contracts\\SchemaProviderInterface {
+                public function __construct() { throw new \\TypeError('Simulated type error'); }
+                public function can_provide(string \$context): bool { return false; }
+                public function get_pieces(string \$context): array { return []; }
+                public function get_priority(): int { return 10; }
+            }
+        ");
+
+        $result = App::register_provider('throwable_provider', $throwableClass);
+
+        $this->assertFalse($result, 'Should return false when constructor throws Throwable');
+    }
+
+    public function testRegisterProviderReturnsFalseBeforeInit(): void
+    {
+        // Do NOT call App::initialize() — should return false instead of crashing
+        $providerClass = 'PreInitProvider_' . uniqid();
+        eval("
+            class {$providerClass} implements \\BuiltNorth\\WPSchema\\Contracts\\SchemaProviderInterface {
+                public function can_provide(string \$context): bool { return false; }
+                public function get_pieces(string \$context): array { return []; }
+                public function get_priority(): int { return 10; }
+            }
+        ");
+
+        $result = App::register_provider('pre_init_provider', $providerClass);
+
+        $this->assertFalse($result, 'register_provider should return false safely when called before init()');
     }
 }
