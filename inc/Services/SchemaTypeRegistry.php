@@ -373,6 +373,8 @@ class SchemaTypeRegistry
             'faq' => 'FAQPage',
             'coupon' => 'Offer',
             'polaris_coupon' => 'Offer',
+            'polaris_service' => 'Service',
+            'service' => 'Service',
             'listing' => 'LocalBusiness',
             'polaris_listing' => 'LocalBusiness',
         ];

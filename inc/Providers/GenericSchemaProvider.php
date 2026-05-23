@@ -30,6 +30,8 @@ class GenericSchemaProvider implements SchemaProviderInterface
         'ContactPage',
         'Organization',
         'Person',
+        'Offer',
+        'Service',
         'WebSite',
         // Add other types that have specific providers
     ];
