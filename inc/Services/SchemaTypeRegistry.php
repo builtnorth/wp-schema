@@ -42,9 +42,26 @@ class SchemaTypeRegistry
             ['label' => 'Media Gallery', 'value' => 'MediaGallery'],
             
             // Commerce
-            ['label' => 'Product', 'value' => 'Product'],
-            ['label' => 'Service', 'value' => 'Service'],
-            ['label' => 'Review', 'value' => 'Review'],
+            ['label' => 'Product', 'value' => 'Product', 'category' => 'Commerce', 'subcategory' => 'Product'],
+            ['label' => 'Offer', 'value' => 'Offer', 'category' => 'Commerce', 'subcategory' => 'Intangible'],
+            ['label' => 'AggregateOffer', 'value' => 'AggregateOffer', 'category' => 'Commerce', 'subcategory' => 'Intangible'],
+            ['label' => 'Demand', 'value' => 'Demand', 'category' => 'Commerce', 'subcategory' => 'Intangible'],
+            ['label' => 'Invoice', 'value' => 'Invoice', 'category' => 'Commerce', 'subcategory' => 'Intangible'],
+            ['label' => 'Order', 'value' => 'Order', 'category' => 'Commerce', 'subcategory' => 'Intangible'],
+            ['label' => 'OrderItem', 'value' => 'OrderItem', 'category' => 'Commerce', 'subcategory' => 'Intangible'],
+            ['label' => 'MenuItem', 'value' => 'MenuItem', 'category' => 'Commerce', 'subcategory' => 'Product'],
+            ['label' => 'Brand', 'value' => 'Brand', 'category' => 'Commerce', 'subcategory' => 'Intangible'],
+            ['label' => 'Service', 'value' => 'Service', 'category' => 'Commerce', 'subcategory' => 'Service'],
+            ['label' => 'Review', 'value' => 'Review', 'category' => 'Commerce', 'subcategory' => 'Review'],
+            ['label' => 'ItemList', 'value' => 'ItemList', 'category' => 'CreativeWork', 'subcategory' => 'WebPage'],
+            ['label' => 'Collection', 'value' => 'Collection', 'category' => 'CreativeWork', 'subcategory' => 'CreativeWork'],
+            ['label' => 'Dataset', 'value' => 'Dataset', 'category' => 'CreativeWork', 'subcategory' => 'CreativeWork'],
+            ['label' => 'SpecialAnnouncement', 'value' => 'SpecialAnnouncement', 'category' => 'CreativeWork', 'subcategory' => 'Article'],
+            ['label' => 'SocialMediaPosting', 'value' => 'SocialMediaPosting', 'category' => 'CreativeWork', 'subcategory' => 'Article'],
+            ['label' => 'Blog', 'value' => 'Blog', 'category' => 'CreativeWork', 'subcategory' => 'Article'],
+            ['label' => 'DiscussionForumPosting', 'value' => 'DiscussionForumPosting', 'category' => 'CreativeWork', 'subcategory' => 'Article'],
+            ['label' => 'LiveBlogPosting', 'value' => 'LiveBlogPosting', 'category' => 'CreativeWork', 'subcategory' => 'Article'],
+            ['label' => 'Statement', 'value' => 'Statement', 'category' => 'CreativeWork', 'subcategory' => 'Article'],
             
             // Business & Organizations
             ['label' => 'LocalBusiness', 'value' => 'LocalBusiness', 'category' => 'Organization', 'subcategory' => 'LocalBusiness'],
@@ -354,6 +371,10 @@ class SchemaTypeRegistry
             'job' => 'JobPosting',
             'course' => 'Course',
             'faq' => 'FAQPage',
+            'coupon' => 'Offer',
+            'polaris_coupon' => 'Offer',
+            'listing' => 'LocalBusiness',
+            'polaris_listing' => 'LocalBusiness',
         ];
 
         return apply_filters('wp_schema_framework_post_type_mappings', $mappings);
