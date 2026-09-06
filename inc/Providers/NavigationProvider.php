@@ -25,8 +25,13 @@ class NavigationProvider implements SchemaProviderInterface
     
     public function get_pieces(string $context): array
     {
+        $cached = get_transient('wp_schema_nav_pieces');
+        if (is_array($cached)) {
+            return $cached;
+        }
+
         $pieces = [];
-        
+
         // Check if block theme
         if (function_exists('wp_is_block_theme') && wp_is_block_theme()) {
             // For FSE themes, get wp_navigation posts
@@ -35,7 +40,7 @@ class NavigationProvider implements SchemaProviderInterface
                 'post_status' => 'publish',
                 'numberposts' => -1,
             ]);
-            
+
             foreach ($navigations as $navigation) {
                 $piece = $this->create_navigation_from_post($navigation);
                 if ($piece) {
@@ -43,82 +48,56 @@ class NavigationProvider implements SchemaProviderInterface
                 }
             }
         }
-        
-        // Also check classic menus (FSE themes can have these too)
-        $menus = wp_get_nav_menus();
-        
-        foreach ($menus as $menu) {
-            $menu_items = wp_get_nav_menu_items($menu->term_id);
-            
-            if (empty($menu_items)) {
+
+        // Classic / hybrid: only menus assigned to a theme location (not every unused menu).
+        $locations = get_nav_menu_locations();
+        $registered_menus = get_registered_nav_menus();
+        $seen_menu_ids = [];
+
+        foreach ($locations as $location => $menu_id) {
+            $menu_id = (int) $menu_id;
+            if ($menu_id <= 0 || isset($seen_menu_ids[ $menu_id ])) {
                 continue;
             }
-            
-            $menu_slug = sanitize_title($menu->name);
-            $piece = new SchemaPiece("#navigation-{$menu_slug}", 'SiteNavigationElement');
-            $piece->set('name', $menu->name);
-            
-            // Build menu items - include ALL top-level items (even those with children)
+            $seen_menu_ids[ $menu_id ] = true;
+
+            $menu = wp_get_nav_menu_object($menu_id);
+            if (!$menu) {
+                continue;
+            }
+
+            $menu_items = wp_get_nav_menu_items($menu_id);
+            if (!$menu_items) {
+                continue;
+            }
+
+            $piece = new SchemaPiece("#navigation-{$location}", 'SiteNavigationElement');
+            $name = $registered_menus[$location] ?? ucfirst(str_replace('_', ' ', $location));
+            $piece->set('name', $name);
+
             $schema_items = [];
-            
-            // Collect top-level items
             foreach ($menu_items as $item) {
-                if ($item->menu_item_parent == 0 || $item->menu_item_parent == '0') { // Only top-level items
-                    // Skip items without titles
-                    $title = trim($item->title);
-                    if (empty($title)) {
+                if ($item->menu_item_parent == 0 || $item->menu_item_parent == '0') {
+                    $title = trim((string) $item->title);
+                    if ($title === '') {
                         continue;
                     }
-                    
-                    // Get the URL based on menu item type
-                    $url = '';
-                    
-                    switch ($item->type) {
-                        case 'custom':
-                            // Custom links have URL stored directly
-                            $url = $item->url;
-                            break;
-                        case 'post_type':
-                            // Regular post/page
-                            if ($item->object_id) {
-                                $url = get_permalink($item->object_id);
-                            }
-                            break;
-                        case 'post_type_archive':
-                            // Archive page (like Blog)
-                            if ($item->object) {
-                                $url = get_post_type_archive_link($item->object);
-                            }
-                            break;
-                        case 'taxonomy':
-                            // Category/tag/taxonomy term
-                            if ($item->object_id && $item->object) {
-                                $url = get_term_link((int) $item->object_id, $item->object);
-                            }
-                            break;
-                        default:
-                            // Fallback to stored URL
-                            $url = $item->url;
-                            break;
-                    }
-                    
-                    // Ensure URL is valid and not empty
-                    if (!is_wp_error($url) && !empty($url)) {
-                        $schema_items[] = [
-                            '@type' => 'SiteNavigationElement',
-                            'name' => $title,
-                            'url' => $url,
-                        ];
-                    }
+                    $schema_items[] = [
+                        '@type' => 'SiteNavigationElement',
+                        'name' => $title,
+                        'url' => $item->url,
+                    ];
                 }
             }
-            
+
             if (!empty($schema_items)) {
                 $piece->set('hasPart', $schema_items);
                 $pieces[] = $piece;
             }
         }
-        
+
+        set_transient('wp_schema_nav_pieces', $pieces, 15 * MINUTE_IN_SECONDS);
+
         return $pieces;
     }
     
