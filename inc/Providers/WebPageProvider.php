@@ -131,9 +131,12 @@ class WebPageProvider implements SchemaProviderInterface
             ->set('datePublished', get_the_date('c', $post->ID))
             ->set('dateModified', get_the_modified_date('c', $post->ID))
             ->set('inLanguage', get_bloginfo('language'))
-            ->add_reference('author', '#author')
             ->add_reference('publisher', '#organization')
             ->add_reference('isPartOf', '#website');
+
+        if (AuthorProvider::has_resolvable_author($post)) {
+            $webpage->add_reference('author', '#author');
+        }
 
         // Add description from filter or excerpt
         $description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);

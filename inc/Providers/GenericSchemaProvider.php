@@ -119,11 +119,8 @@ class GenericSchemaProvider implements SchemaProviderInterface
                 }
             }
             
-            // Add author for types that support it
-            if ($this->supports_author($schema_type)) {
-                $generic->add_reference('author', '#author');
-            }
-            
+            // AuthorProvider only runs on singular; never reference #author on home.
+
             // Add publisher for types that support it
             if ($this->supports_publisher($schema_type)) {
                 $generic->add_reference('publisher', '#organization');
@@ -183,8 +180,8 @@ class GenericSchemaProvider implements SchemaProviderInterface
             }
         }
         
-        // Add author for types that support it
-        if ($this->supports_author($schema_type)) {
+        // Add author only when AuthorProvider can emit #author
+        if ($this->supports_author($schema_type) && AuthorProvider::has_resolvable_author($post)) {
             $generic->add_reference('author', '#author');
         }
         

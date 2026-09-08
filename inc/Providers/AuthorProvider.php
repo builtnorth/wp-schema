@@ -16,20 +16,37 @@ use BuiltNorth\WPSchema\Graph\SchemaPiece;
  */
 class AuthorProvider implements SchemaProviderInterface
 {
+    /**
+     * Whether a post has a loadable author user.
+     *
+     * Used by other providers before adding author → #author references.
+     *
+     * @param object|null $post Post-like object with post_author; defaults to queried object.
+     */
+    public static function has_resolvable_author(?object $post = null): bool
+    {
+        $post ??= get_queried_object();
+
+        if (!$post || !isset($post->post_author) || (int) $post->post_author <= 0) {
+            return false;
+        }
+
+        return (bool) get_userdata((int) $post->post_author);
+    }
+
     public function can_provide(string $context): bool
     {
         if ($context !== 'singular') {
             return false;
         }
-        
-        $post = get_queried_object();
-        return $post && isset($post->post_author) && $post->post_author > 0;
+
+        return self::has_resolvable_author();
     }
     
     public function get_pieces(string $context): array
     {
         $post = get_queried_object();
-        if (!$post || !isset($post->post_author)) {
+        if (!self::has_resolvable_author($post)) {
             return [];
         }
         

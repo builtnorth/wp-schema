@@ -57,8 +57,9 @@ class ArticleProvider implements SchemaProviderInterface
                 ->set('headline', get_bloginfo('name'))
                 ->set('name', get_bloginfo('name'))
                 ->set('url', home_url())
-                ->add_reference('author', '#author')
                 ->add_reference('publisher', '#organization');
+
+            // AuthorProvider only runs on singular; never reference #author on home.
             
             // Add description
             $description = get_bloginfo('description');
@@ -128,9 +129,12 @@ class ArticleProvider implements SchemaProviderInterface
             ->set('dateModified', get_the_modified_date('c', $post->ID))
             ->set('mainEntityOfPage', ['@type' => 'WebPage', '@id' => get_permalink($post->ID)])
             ->set('inLanguage', get_bloginfo('language'))
-            ->add_reference('author', '#author')
             ->add_reference('publisher', '#organization')
             ->add_reference('isPartOf', '#website');
+
+        if (AuthorProvider::has_resolvable_author($post)) {
+            $article->add_reference('author', '#author');
+        }
 
         // Description from filter or excerpt
         $description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);
