@@ -15,7 +15,10 @@
   "autoload": {
     "psr-4": {
       "BuiltNorth\\WPSchema\\": "inc/"
-    }
+    },
+    "files": [
+      "inc/API/functions.php"
+    ]
   },
   "autoload-dev": {
     "psr-4": {
