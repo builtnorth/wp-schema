@@ -34,11 +34,11 @@ composer require builtnorth/wp-schema
 Initialize the framework in your plugin or theme:
 
 ```php
+use BuiltNorth\WPSchema\Schema;
+
 // Initialize wp-schema
-if (class_exists('BuiltNorth\WPSchema\App')) {
-	add_action('init', function() {
-		BuiltNorth\WPSchema\App::initialize();
-	});
+if (class_exists(Schema::class)) {
+	Schema::boot();
 }
 ```
 
@@ -46,15 +46,17 @@ Once initialized, the framework automatically outputs schema via HTML `<script t
 
 ### For Plugin Developers
 
-Register your schema providers via hook:
+Register your schema provider in one line — `Schema::registerProvider()`
+defers itself onto wp-schema's own registration hook internally, so there's
+no hook to wire up by hand and no risk of registering before the framework
+is ready:
 
 ```php
-add_action('wp_schema_framework_register_providers', function($provider_manager) {
-    $provider_manager->register(
-        'my_plugin_provider',
-        'MyPlugin\\Schema\\MySchemaProvider'
-    );
-});
+use BuiltNorth\WPSchema\Schema;
+
+if (class_exists(Schema::class)) {
+	Schema::registerProvider('my_plugin_provider', MyPlugin\Schema\MySchemaProvider::class);
+}
 ```
 
 ### Simple Filter Approach
@@ -89,7 +91,7 @@ add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $
 
 ### Product Schema Integration
 
-The ProductProvider automatically detects WooCommerce, Easy Digital Downloads, and BigCommerce products. 
+The ProductProvider automatically detects WooCommerce, Easy Digital Downloads, and BigCommerce products.
 
 **Note**: To avoid conflicts, ProductProvider automatically disables itself when WooCommerce's built-in schema is active. To force wp-schema to handle product schema instead:
 
@@ -114,7 +116,7 @@ add_filter('wp_schema_framework_get_product_data', function($data, $post_id) {
     if (get_post_type($post_id) !== 'my_product_type') {
         return $data;
     }
-    
+
     return [
         'name' => get_the_title($post_id),
         'price' => get_post_meta($post_id, 'price', true),
@@ -145,7 +147,7 @@ add_filter('wp_schema_framework_get_event_data', function($data, $post_id) {
     if (get_post_type($post_id) !== 'my_event_type') {
         return $data;
     }
-    
+
     return [
         'name' => get_the_title($post_id),
         'description' => get_the_excerpt($post_id),
@@ -171,7 +173,6 @@ add_filter('wp_schema_framework_get_event_data', function($data, $post_id) {
     ];
 }, 10, 2);
 ```
-
 
 ## Provider Interface
 
@@ -245,48 +246,48 @@ The package outputs clean schema with proper relationships using the @graph form
 
 ```json
 {
-	"@context": "https://schema.org",
-	"@graph": [
-		{
-			"@type": "Organization",
-			"@id": "https://example.com/#organization",
-			"name": "My Organization",
-			"logo": {
-				"@type": "ImageObject",
-				"url": "https://example.com/logo.png"
-			}
-		},
-		{
-			"@type": "WebSite",
-			"@id": "https://example.com/#website",
-			"name": "My Site",
-			"publisher": { "@id": "https://example.com/#organization" },
-			"image": {
-				"@type": "ImageObject",
-				"url": "https://example.com/icon.png"
-			}
-		},
-		{
-			"@type": "Article",
-			"@id": "https://example.com/post/#article",
-			"headline": "Article Title",
-			"author": { "@id": "https://example.com/#author-1" },
-			"publisher": { "@id": "https://example.com/#organization" },
-			"comment": [
-				{
-					"@type": "Comment",
-					"author": { "@type": "Person", "name": "Commenter" },
-					"text": "Great article!"
-				}
-			]
-		},
-		{
-			"@type": "Person",
-			"@id": "https://example.com/#author-1",
-			"name": "Author Name",
-			"url": "https://example.com/author/authorname/"
-		}
-	]
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "Organization",
+            "@id": "https://example.com/#organization",
+            "name": "My Organization",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://example.com/logo.png"
+            }
+        },
+        {
+            "@type": "WebSite",
+            "@id": "https://example.com/#website",
+            "name": "My Site",
+            "publisher": { "@id": "https://example.com/#organization" },
+            "image": {
+                "@type": "ImageObject",
+                "url": "https://example.com/icon.png"
+            }
+        },
+        {
+            "@type": "Article",
+            "@id": "https://example.com/post/#article",
+            "headline": "Article Title",
+            "author": { "@id": "https://example.com/#author-1" },
+            "publisher": { "@id": "https://example.com/#organization" },
+            "comment": [
+                {
+                    "@type": "Comment",
+                    "author": { "@type": "Person", "name": "Commenter" },
+                    "text": "Great article!"
+                }
+            ]
+        },
+        {
+            "@type": "Person",
+            "@id": "https://example.com/#author-1",
+            "name": "Author Name",
+            "url": "https://example.com/author/authorname/"
+        }
+    ]
 }
 ```
 
@@ -308,12 +309,14 @@ The system recognizes these contexts for schema generation:
 The framework provides extensive hooks and filters for customization. Here are the most commonly used:
 
 #### Actions
+
 - `wp_schema_framework_register_providers` - Register custom providers
 - `wp_schema_framework_ready` - Framework initialization complete
 - `wp_schema_framework_before_output` - Before schema is output to page
 - `wp_schema_framework_after_output` - After schema has been output
 
 #### Core Filters
+
 - `wp_schema_framework_output_enabled` - Enable/disable schema output globally
 - `wp_schema_framework_context` - Override detected page context
 - `wp_schema_framework_pieces` - Modify final schema pieces array
@@ -323,6 +326,7 @@ The framework provides extensive hooks and filters for customization. Here are t
 - `wp_schema_framework_piece_id_{id}` - Modify schema piece by ID (e.g., `#organization`)
 
 #### Provider Data Filters
+
 - `wp_schema_framework_organization_data` - Modify organization schema
 - `wp_schema_framework_organization_type` - Override organization type
 - `wp_schema_framework_website_data` - Modify website schema
@@ -338,6 +342,7 @@ The framework provides extensive hooks and filters for customization. Here are t
 - `wp_schema_framework_page_type_data` - Modify specialized page type schema
 
 #### Post Type Filters
+
 - `wp_schema_framework_post_type_override` - Override schema type for specific posts
 - `wp_schema_framework_post_type_mapping` - Map post types to schema types
 - `wp_schema_framework_post_description` - Provide custom post descriptions
@@ -345,16 +350,19 @@ The framework provides extensive hooks and filters for customization. Here are t
 - `wp_schema_framework_homepage_data` - Modify homepage schema data
 
 #### Detection Filters
+
 - `wp_schema_framework_is_product` - Custom product detection
 - `wp_schema_framework_is_event` - Custom event detection
 - `wp_schema_framework_get_product_data` - Provide custom product data
 - `wp_schema_framework_get_event_data` - Provide custom event data
 
 #### Plugin Conflict Filters
+
 - `wp_schema_framework_woocommerce_schema_active` - Override WooCommerce conflict detection
 - `wp_schema_framework_tribe_events_schema_active` - Override The Events Calendar conflict detection
 
 #### Specialized Filters
+
 - `wp_schema_framework_faq_items` - Provide FAQ items for FAQPage
 - `wp_schema_framework_collection_items` - Provide collection items
 - `wp_schema_framework_gallery_items` - Provide gallery images
@@ -389,8 +397,7 @@ The registry now includes category metadata for better organization:
 
 ```php
 // Get types organized by category
-$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
-$categorized = $type_registry->get_categorized_types();
+$categorized = BuiltNorth\WPSchema\Schema::getCategorizedTypes();
 
 // Returns structure like:
 // [
@@ -411,23 +418,23 @@ $categorized = $type_registry->get_categorized_types();
 Get filtered sets of types for specific use cases:
 
 ```php
-$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
+use BuiltNorth\WPSchema\Schema;
 
 // Get only organization/business types (for organization settings)
-$org_types = $type_registry->get_organization_types();
+$org_types = Schema::getOrganizationTypes();
 
 // Get organization types categorized for dropdowns
-$categorized_org = $type_registry->get_categorized_organization_types();
+$categorized_org = Schema::getCategorizedOrganizationTypes();
 // Returns user-friendly categories like:
 // - General Business
-// - Food & Dining  
+// - Food & Dining
 // - Retail Stores
 // - Home & Construction
 // - Medical Services
 // etc.
 
 // Get content-focused types (for posts/pages)
-$content_types = $type_registry->get_content_types();
+$content_types = Schema::getContentTypes();
 // Returns Article, BlogPosting, HowTo, Product, Event, etc.
 ```
 
@@ -453,25 +460,25 @@ Add custom schema types to the registry:
 add_filter('wp_schema_framework_type_registry_types', function($types) {
     // Add custom types with category metadata
     $types[] = [
-        'label' => 'Podcast', 
+        'label' => 'Podcast',
         'value' => 'PodcastSeries',
         'category' => 'CreativeWork',
         'subcategory' => 'PodcastSeries'
     ];
     $types[] = [
-        'label' => 'Coworking Space', 
+        'label' => 'Coworking Space',
         'value' => 'CoworkingSpace',
         'category' => 'Organization',
         'subcategory' => 'LocalBusiness',
         'parent' => 'LocalBusiness'
     ];
     $types[] = [
-        'label' => 'Webinar', 
+        'label' => 'Webinar',
         'value' => 'Webinar',
         'category' => 'Event',
         'subcategory' => 'Event'
     ];
-    
+
     return $types;
 });
 ```
@@ -502,13 +509,13 @@ add_filter('wp_schema_framework_type_registry_types', function($types) {
     $types = array_filter($types, function($type) {
         return !str_contains($type['value'], 'Action');
     });
-    
+
     // Remove specific types
     $remove_types = ['Cemetery', 'Canal', 'Mountain'];
     $types = array_filter($types, function($type) use ($remove_types) {
         return !in_array($type['value'], $remove_types);
     });
-    
+
     return $types;
 });
 ```
@@ -517,8 +524,7 @@ Organize types for better UX using built-in categories:
 
 ```php
 // Create optgroups using the built-in category metadata
-$type_registry = BuiltNorth\WPSchema\App::instance()->get_type_registry();
-$categorized = $type_registry->get_categorized_organization_types();
+$categorized = BuiltNorth\WPSchema\Schema::getCategorizedOrganizationTypes();
 
 echo '<select name="organization_type">';
 foreach ($categorized as $category => $types) {
@@ -542,17 +548,21 @@ echo '</select>';
 
 ## API Reference
 
-### App Class
+### Schema Facade
 
-The main application class provides static methods for framework interaction:
+`BuiltNorth\WPSchema\Schema` is the recommended entry point for
+everything above — initialization, provider registration, and every type
+registry getter. Prefer it over calling `App` directly; it's the stable,
+documented surface this package commits to.
+
+### App Class (advanced / internal)
+
+`App` is the real class the facade delegates to. Reach for it directly only
+if you need something the facade doesn't expose yet (e.g. the raw graph
+builder or a direct `is_initialized()` check) — most integrations never need
+this:
 
 ```php
-// Initialize the framework
-BuiltNorth\WPSchema\App::initialize();
-
-// Register a provider programmatically
-BuiltNorth\WPSchema\App::register_provider('my_provider', 'MyPlugin\MyProvider');
-
 // Get the singleton instance
 $app = BuiltNorth\WPSchema\App::instance();
 
