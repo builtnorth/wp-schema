@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BuiltNorth\WPSchema\Services;
 
+use BuiltNorth\WPSchema\Graph\SchemaGraph;
+
 /**
  * Output Service
  * 
@@ -57,32 +59,41 @@ class OutputService
     }
     
     /**
-     * Output graph as JSON-LD scripts
+     * The `@context` + `@graph` array exactly as it is printed to the head,
+     * after the wp_schema_framework_graph filter. Shared with the WP-CLI
+     * command so `wp schema dump` and the live page can never disagree.
+     *
+     * @return array<string, mixed>
      */
-    private function output_graph($graph): void
+    public function get_graph_data(SchemaGraph $graph): array
     {
-        $pieces = $graph->get_pieces();
-        
-        if (empty($pieces)) {
-            return;
-        }
-        
-        // Build @graph array with all pieces
         $graph_data = [
             '@context' => 'https://schema.org',
             '@graph' => []
         ];
-        
-        foreach ($pieces as $piece) {
+
+        foreach ($graph->get_pieces() as $piece) {
             $piece_data = $piece->to_array();
             // Remove individual @context from pieces
             unset($piece_data['@context']);
             $graph_data['@graph'][] = $piece_data;
         }
-        
+
         // Allow filtering of complete graph before output
-        $graph_data = apply_filters('wp_schema_framework_graph', $graph_data);
-        
+        return (array) apply_filters('wp_schema_framework_graph', $graph_data);
+    }
+
+    /**
+     * Output graph as JSON-LD scripts
+     */
+    private function output_graph(SchemaGraph $graph): void
+    {
+        $graph_data = $this->get_graph_data($graph);
+
+        if (empty($graph_data['@graph'])) {
+            return;
+        }
+
         // JSON_HEX_TAG prevents </script> breakout inside <script type="application/ld+json">
         $json = json_encode($graph_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         

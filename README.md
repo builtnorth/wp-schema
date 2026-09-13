@@ -337,6 +337,32 @@ If your provider emits the entity for a post type, opt that post type out of
 the generic fallback with `wp_schema_framework_generic_skip_post_types` so the
 graph does not carry two entities for one post.
 
+## WP-CLI
+
+Verify output locally without an HTTP request — and without a page cache
+getting in the way. The command emulates a front-end request for the path
+through WordPress's own rewrite resolution, builds the graph in-process, and
+inspects it.
+
+```bash
+wp schema check                          # home page
+wp schema check /locations/acme-store/   # any path, e.g. /?s=term
+wp schema check --post=5151              # by post ID
+wp schema check --all                    # home, blog page, newest post of every
+                                         # public post type, every CPT archive
+wp schema check --all --format=json      # machine-readable; exit 1 on failure
+wp schema dump /                         # the exact JSON-LD wp_head would print
+```
+
+`check` reports every node, confirms the page node is present with the
+expected `@id`, and fails on any `{"@id": …}` reference — however deeply
+nested — that does not resolve to a node in the same graph. Use `dump` to
+paste into the Rich Results Test or Schema.org validator when the site is
+not publicly reachable.
+
+The path is a positional argument because `--url` and `--path` are WP-CLI
+globals and never reach the command.
+
 ## Contexts
 
 The system recognizes these contexts for schema generation:

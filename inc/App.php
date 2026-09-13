@@ -62,6 +62,10 @@ class App
         // Initialize output hooks
         $this->output_service->init();
 
+        if (defined('WP_CLI') && WP_CLI && class_exists('WP_CLI')) {
+            \WP_CLI::add_command('schema', CLI\SchemaCommand::class);
+        }
+
         // Mark initialized before firing the action so register_provider() works
         // during wp_schema_framework_register_providers callbacks.
         $this->initialized = true;
@@ -163,6 +167,22 @@ class App
     public function get_graph_builder(): GraphBuilder
     {
         return $this->graph_builder;
+    }
+
+    /**
+     * Get output service
+     */
+    public function get_output_service(): OutputService
+    {
+        return $this->output_service;
+    }
+
+    /**
+     * Get context detector
+     */
+    public function get_context_detector(): ContextDetector
+    {
+        return $this->context_detector;
     }
 
     /**
