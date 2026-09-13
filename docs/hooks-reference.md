@@ -158,8 +158,21 @@ add_filter('wp_schema_framework_piece_article', function($piece, $context) {
 }, 10, 2);
 ```
 
-#### `wp_schema_framework_piece_id_{id}`
-Modify a specific schema piece by ID.
+#### `wp_schema_framework_piece_id_{name}`
+Modify a specific schema piece by name.
+
+`{name}` is the piece's short handle, not its `@id`. The handle is derived by
+stripping the home URL and slugifying, so a node identified by an absolute IRI
+and one identified by a bare fragment share the same hook — and that hook is the
+same on every site:
+
+| `@id` | hook |
+|---|---|
+| `https://example.com/#organization` | `wp_schema_framework_piece_id_organization` |
+| `#organization` | `wp_schema_framework_piece_id_organization` |
+
+A provider can pass a handle explicitly to `SchemaPiece` when the derived one
+would be unstable (an `@id` containing a post ID, say).
 
 **Parameters:**
 - `$piece` (SchemaPiece) - The schema piece
@@ -167,12 +180,15 @@ Modify a specific schema piece by ID.
 
 **Usage:**
 ```php
-// Note: '#' is stripped from IDs when building the hook name, so '#organization' becomes 'organization'
 add_filter('wp_schema_framework_piece_id_organization', function($piece, $context) {
     $piece->set('telephone', '+1234567890');
     return $piece;
 }, 10, 2);
 ```
+
+This is also the supported way to contribute properties to a node another
+provider owns. Emitting a second piece with the same `@id` replaces the first
+and triggers `_doing_it_wrong`.
 
 ### Provider Data Filters
 

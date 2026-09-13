@@ -323,7 +323,13 @@ The framework provides extensive hooks and filters for customization. Here are t
 - `wp_schema_framework_graph` - Modify complete schema graph before output
 - `wp_schema_framework_json_output` - Modify final JSON-LD string before output
 - `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `article`, `product`)
-- `wp_schema_framework_piece_id_{id}` - Modify schema piece by ID (e.g., `#organization`)
+- `wp_schema_framework_piece_id_{name}` - Modify schema piece by name (e.g., `organization`)
+
+`{name}` is the piece's short handle, not its `@id`. `@id`s are absolute IRIs,
+so building a hook name from one would embed the site URL and differ per site.
+The handle is derived by stripping the home URL and slugifying, so both
+`https://example.com/#organization` and `#organization` resolve to
+`organization` — see [SchemaPiece](#schemapiece-class) to set one explicitly.
 
 #### Provider Data Filters
 
@@ -619,6 +625,40 @@ $has_author = $piece->has('author');
 
 // Convert to array
 $data = $piece->to_array();
+```
+
+#### Piece names
+
+Each piece has a short handle alongside its `@id`, used to build the
+`wp_schema_framework_piece_id_{name}` hook. It is derived from the `@id` by
+stripping the home URL and slugifying:
+
+```php
+// Both resolve to the handle "organization", so the same hook works on any site
+new SchemaPiece('https://example.com/#organization', 'Organization');
+new SchemaPiece('#organization', 'Organization');
+
+$piece->get_name(); // "organization"
+```
+
+Pass one explicitly when the derived handle would be unstable — for example an
+`@id` containing a post ID:
+
+```php
+// Handle stays "review-summary" instead of becoming "review-4812"
+new SchemaPiece("https://example.com/#review-{$post->ID}", 'Review', [], 'review-summary');
+```
+
+#### One piece per `@id`
+
+`SchemaGraph::add_piece()` keys pieces by `@id`, so a second piece claiming the
+same `@id` replaces the first and triggers `_doing_it_wrong`. To add properties
+to a node another provider owns, filter it rather than emitting a second piece:
+
+```php
+add_filter('wp_schema_framework_piece_id_organization', function ($piece, $context) {
+    return $piece->set('openingHoursSpecification', $hours);
+}, 10, 2);
 ```
 
 ## Contributing
