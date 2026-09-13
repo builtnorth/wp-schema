@@ -137,11 +137,11 @@ class GenericSchemaProvider implements SchemaProviderInterface
 
             // Add publisher for types that support it
             if ($this->supports_publisher($schema_type)) {
-                $generic->add_reference('publisher', '#organization');
+                $generic->add_reference('publisher', SchemaIds::organization_id());
             }
             
             // Add website reference
-            $generic->add_reference('isPartOf', '#website');
+            $generic->add_reference('isPartOf', SchemaIds::website_id());
             
             // Allow filtering of homepage data
             $data = apply_filters('wp_schema_framework_homepage_data', $generic->to_array());
@@ -204,7 +204,7 @@ class GenericSchemaProvider implements SchemaProviderInterface
         
         // Add publisher for types that support it
         if ($this->supports_publisher($schema_type)) {
-            $generic->add_reference('publisher', '#organization');
+            $generic->add_reference('publisher', SchemaIds::organization_id());
         }
         
         // Entity → page. isPartOf/breadcrumb belong to the WebPage node, which

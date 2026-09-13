@@ -58,7 +58,7 @@ class ArticleProvider implements SchemaProviderInterface
                 ->set('headline', get_bloginfo('name'))
                 ->set('name', get_bloginfo('name'))
                 ->set('url', home_url())
-                ->add_reference('publisher', '#organization');
+                ->add_reference('publisher', SchemaIds::organization_id());
 
             // AuthorProvider only runs on singular; never reference #author on home.
             
@@ -134,7 +134,7 @@ class ArticleProvider implements SchemaProviderInterface
             ->set('datePublished', get_the_date('c', $post->ID))
             ->set('dateModified', get_the_modified_date('c', $post->ID))
             ->set('inLanguage', get_bloginfo('language'))
-            ->add_reference('publisher', '#organization');
+            ->add_reference('publisher', SchemaIds::organization_id());
 
         // Entity → page: both point at the WebPage node (Yoast's shape).
         foreach (SchemaIds::page_links($post) as $property => $reference) {

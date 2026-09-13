@@ -58,8 +58,8 @@ class WebPageProvider implements SchemaProviderInterface
                 ->set('headline', get_bloginfo('name'))
                 ->set('url', home_url())
                 ->set('inLanguage', get_bloginfo('language'))
-                ->add_reference('publisher', '#organization')
-                ->add_reference('isPartOf', '#website');
+                ->add_reference('publisher', SchemaIds::organization_id())
+                ->add_reference('isPartOf', SchemaIds::website_id());
 
             // Add description
             $description = get_bloginfo('description');
@@ -137,8 +137,8 @@ class WebPageProvider implements SchemaProviderInterface
             ->set('datePublished', get_the_date('c', $post->ID))
             ->set('dateModified', get_the_modified_date('c', $post->ID))
             ->set('inLanguage', get_bloginfo('language'))
-            ->add_reference('publisher', '#organization')
-            ->add_reference('isPartOf', '#website');
+            ->add_reference('publisher', SchemaIds::organization_id())
+            ->add_reference('isPartOf', SchemaIds::website_id());
 
         if (AuthorProvider::has_resolvable_author($post)) {
             $webpage->add_reference('author', '#author');

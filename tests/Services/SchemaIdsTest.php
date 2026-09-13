@@ -16,9 +16,6 @@ class SchemaIdsTest extends TestCase {
 	public function setUp(): void {
 		parent::setUp();
 		$this->setUpCommonMocks();
-
-		WP_Mock::userFunction( 'trailingslashit' )
-			->andReturnUsing( static fn( string $s ) => rtrim( $s, '/' ) . '/' );
 	}
 
 	/**
@@ -41,6 +38,15 @@ class SchemaIdsTest extends TestCase {
 
 	public function test_home_webpage_id_is_the_home_url(): void {
 		$this->assertSame( 'https://example.com/', SchemaIds::home_webpage_id() );
+	}
+
+	/**
+	 * Site-wide nodes are referenced from every page, so their @ids must be
+	 * absolute — a bare "#organization" would resolve against each page's URL.
+	 */
+	public function test_site_wide_ids_are_absolute(): void {
+		$this->assertSame( 'https://example.com/#organization', SchemaIds::organization_id() );
+		$this->assertSame( 'https://example.com/#website', SchemaIds::website_id() );
 	}
 
 	/**

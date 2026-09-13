@@ -97,7 +97,7 @@ class OfferProvider implements SchemaProviderInterface
 
 	private function organization_id(): string
 	{
-		$default = trailingslashit(home_url('/')) . '#organization';
+		$default = SchemaIds::organization_id();
 
 		return (string) apply_filters('wp_schema_framework_organization_id', $default);
 	}

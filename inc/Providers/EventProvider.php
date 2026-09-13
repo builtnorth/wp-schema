@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Event Provider
@@ -117,7 +118,7 @@ class EventProvider implements SchemaProviderInterface
             $event->set('organizer', $this->build_organizer($event_data['organizer']));
         } else {
             // Default to site organization
-            $event->set('organizer', ['@id' => '#organization']);
+            $event->set('organizer', ['@id' => SchemaIds::organization_id()]);
         }
         
         // Add performer(s)

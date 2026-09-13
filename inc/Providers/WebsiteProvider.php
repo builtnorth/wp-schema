@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Website Provider
@@ -39,13 +40,13 @@ class WebsiteProvider implements SchemaProviderInterface
     
     public function get_pieces(string $context): array
     {
-        $website = new SchemaPiece('#website', 'WebSite');
-        
+        $website = new SchemaPiece(SchemaIds::website_id(), 'WebSite', [], 'website');
+
         // Basic website data
         $website
             ->set('name', get_bloginfo('name'))
             ->set('url', home_url('/'))
-            ->add_reference('publisher', '#organization');
+            ->add_reference('publisher', SchemaIds::organization_id());
 
         // Add description if available
         $description = get_bloginfo('description');

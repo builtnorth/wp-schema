@@ -22,6 +22,24 @@ final class SchemaIds
     public const ORGANIZATION_FRAGMENT = '#organization';
 
     /**
+     * The site-wide Organization @id. Absolute, because it is referenced from
+     * every page: a bare "#organization" would resolve against each page's own
+     * URL and never match the node.
+     */
+    public static function organization_id(): string
+    {
+        return trailingslashit(home_url('/')) . '#organization';
+    }
+
+    /**
+     * The site-wide WebSite @id — absolute for the same reason as organization_id().
+     */
+    public static function website_id(): string
+    {
+        return trailingslashit(home_url('/')) . '#website';
+    }
+
+    /**
      * The WebPage @id for a post: its permalink, no fragment.
      */
     public static function webpage_id(\WP_Post|int $post): string

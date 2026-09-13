@@ -314,6 +314,11 @@ in Google's Rich Results test and can be consumed by the same tooling:
   separate node with `@id` = `{permalink}#{fragment}` and links **up** to the
   page via both `isPartOf` and `mainEntityOfPage`. The page never references
   the entity.
+- The **site-wide** nodes (`Organization`, `WebSite`) use absolute `@id`s —
+  `{home_url}#organization`, `{home_url}#website` — because they are referenced
+  from every page. A bare `#organization` would resolve against each page's own
+  URL and never match. Use `SchemaIds::organization_id()` / `website_id()` when
+  referencing them.
 
 `SchemaIds` centralises these conventions so external providers produce the
 same shape:

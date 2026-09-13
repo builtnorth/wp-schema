@@ -57,6 +57,9 @@ abstract class TestCase extends BaseTestCase {
 				return $info[ $show ] ?? 'Test Site';
 			} );
 
+		WP_Mock::userFunction( 'trailingslashit' )
+			->andReturnUsing( static fn( string $s ) => rtrim( $s, '/' ) . '/' );
+
 		WP_Mock::userFunction( 'get_option' )
 			->andReturnUsing( function( $option, $default = false ) {
 				$options = [

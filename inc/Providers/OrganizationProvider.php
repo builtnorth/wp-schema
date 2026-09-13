@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Organization Provider
@@ -24,7 +25,7 @@ class OrganizationProvider implements SchemaProviderInterface
     
     public function get_pieces(string $context): array
     {
-        $organization = new SchemaPiece('#organization', 'Organization');
+        $organization = new SchemaPiece(SchemaIds::organization_id(), 'Organization', [], 'organization');
         
         // Basic organization data
         $organization

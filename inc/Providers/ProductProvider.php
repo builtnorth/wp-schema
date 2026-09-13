@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Product Provider
@@ -391,7 +392,7 @@ class ProductProvider implements SchemaProviderInterface
             ];
         } else {
             // Default to site organization
-            $offer['seller'] = ['@id' => '#organization'];
+            $offer['seller'] = ['@id' => SchemaIds::organization_id()];
         }
         
         return $offer;

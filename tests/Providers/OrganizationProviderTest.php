@@ -56,7 +56,7 @@ class OrganizationProviderTest extends TestCase
         
         $organization = $pieces[0];
         $this->assertInstanceOf('BuiltNorth\WPSchema\Graph\SchemaPiece', $organization);
-        $this->assertEquals('#organization', $organization->get_id());
+        $this->assertEquals('https://example.com/#organization', $organization->get_id());
         $this->assertEquals('Organization', $organization->get_type());
         
         // Check basic properties
@@ -93,7 +93,7 @@ class OrganizationProviderTest extends TestCase
         // Find the organization piece
         $organization = null;
         foreach ($pieces as $piece) {
-            if ($piece->get_id() === '#organization') {
+            if ($piece->get_id() === 'https://example.com/#organization') {
                 $organization = $piece;
                 break;
             }

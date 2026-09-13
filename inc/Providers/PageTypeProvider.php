@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Page Type Provider
@@ -150,7 +151,7 @@ class PageTypeProvider implements SchemaProviderInterface
         }
         
         // Publisher (organization)
-        $page->add_reference('publisher', '#organization');
+        $page->add_reference('publisher', SchemaIds::organization_id());
         
         // Featured image
         if (has_post_thumbnail($post->ID)) {
@@ -176,7 +177,7 @@ class PageTypeProvider implements SchemaProviderInterface
     private function set_contact_page_properties(SchemaPiece $page, \WP_Post $post): void
     {
         // Add organization reference as contact point provider
-        $page->add_reference('contactPoint', '#organization');
+        $page->add_reference('contactPoint', SchemaIds::organization_id());
         
         // Add potential action for contacting
         $page->set('potentialAction', [
@@ -194,11 +195,11 @@ class PageTypeProvider implements SchemaProviderInterface
     private function set_about_page_properties(SchemaPiece $page, \WP_Post $post): void
     {
         // Reference the organization this page is about
-        $page->add_reference('about', '#organization');
-        
+        $page->add_reference('about', SchemaIds::organization_id());
+
         // Add main entity reference
         $page->set('mainEntity', [
-            '@id' => '#organization',
+            '@id' => SchemaIds::organization_id(),
         ]);
     }
     
@@ -247,7 +248,7 @@ class PageTypeProvider implements SchemaProviderInterface
         ]);
         
         // Mark as part of website
-        $page->add_reference('isPartOf', '#website');
+        $page->add_reference('isPartOf', SchemaIds::website_id());
     }
     
     /**
