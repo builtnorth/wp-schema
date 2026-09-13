@@ -24,11 +24,23 @@ class Schema
 	 * Register a schema provider — self-defers to the right moment, no
 	 * add_action() needed at the call site.
 	 *
+	 * Callers land on either side of wp_schema_framework_register_providers:
+	 * a plugin registering at file-load time arrives before it fires, while a
+	 * caller on init (or later) arrives after. Deferring unconditionally would
+	 * silently drop the latter, since the action never fires again — so
+	 * register straight away once it has already run.
+	 *
 	 * @param string $name       Provider name.
 	 * @param string $class_name Provider class name.
 	 */
 	public static function registerProvider(string $name, string $class_name): void
 	{
+		if (did_action('wp_schema_framework_register_providers')) {
+			App::register_provider($name, $class_name);
+
+			return;
+		}
+
 		add_action('wp_schema_framework_register_providers', static function () use ($name, $class_name): void {
 			App::register_provider($name, $class_name);
 		});
