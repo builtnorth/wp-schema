@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Article Provider
@@ -119,7 +120,12 @@ class ArticleProvider implements SchemaProviderInterface
         $default_type = $this->get_default_schema_type($post->post_type);
         $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
 
-        $article = new SchemaPiece('#article', $schema_type);
+        $article_id = SchemaIds::entity_id($post, SchemaIds::ARTICLE_FRAGMENT);
+        if ($article_id === '') {
+            return [];
+        }
+
+        $article = new SchemaPiece($article_id, $schema_type, [], 'article');
 
         $article
             ->set('headline', $post->post_title)
@@ -127,10 +133,13 @@ class ArticleProvider implements SchemaProviderInterface
             ->set('url', get_permalink($post->ID))
             ->set('datePublished', get_the_date('c', $post->ID))
             ->set('dateModified', get_the_modified_date('c', $post->ID))
-            ->set('mainEntityOfPage', ['@type' => 'WebPage', '@id' => get_permalink($post->ID)])
             ->set('inLanguage', get_bloginfo('language'))
-            ->add_reference('publisher', '#organization')
-            ->add_reference('isPartOf', '#website');
+            ->add_reference('publisher', '#organization');
+
+        // Entity → page: both point at the WebPage node (Yoast's shape).
+        foreach (SchemaIds::page_links($post) as $property => $reference) {
+            $article->set($property, $reference);
+        }
 
         if (AuthorProvider::has_resolvable_author($post)) {
             $article->add_reference('author', '#author');

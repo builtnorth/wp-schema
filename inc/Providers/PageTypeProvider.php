@@ -100,9 +100,12 @@ class PageTypeProvider implements SchemaProviderInterface
     }
     
     /**
-     * Get supported page types
+     * WebPage subtypes this provider emits. Public so WebPageProvider can yield
+     * to it rather than producing a second page node.
+     *
+     * @return string[]
      */
-    private function get_supported_types(): array
+    public static function get_supported_types(): array
     {
         return [
             'ContactPage',

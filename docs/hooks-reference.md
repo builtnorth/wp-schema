@@ -281,6 +281,23 @@ Modify specialized page type schema data.
 - `$context` (string) - Current page context
 - `$schema_type` (string) - Detected schema type
 
+#### `wp_schema_framework_generic_skip_post_types`
+Post types whose entity node is emitted by a dedicated provider. GenericSchemaProvider
+skips these so it never emits a second entity for the same post. Keyed by post type
+because the fallback cannot know by *type* — one post type may resolve to Hotel,
+Store, GasStation… depending on per-post settings.
+
+**Parameters:**
+- `$post_types` (string[]) - Post types to skip
+
+**Example:**
+```php
+add_filter('wp_schema_framework_generic_skip_post_types', function($post_types) {
+    $post_types[] = 'my_location';
+    return $post_types;
+});
+```
+
 ### Product Schema Filters
 
 #### `wp_schema_framework_product_data`

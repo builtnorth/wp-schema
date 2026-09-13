@@ -268,9 +268,19 @@ The package outputs clean schema with proper relationships using the @graph form
             }
         },
         {
+            "@type": "WebPage",
+            "@id": "https://example.com/post/",
+            "url": "https://example.com/post/",
+            "name": "Article Title",
+            "isPartOf": { "@id": "https://example.com/#website" },
+            "breadcrumb": { "@id": "https://example.com/post/#breadcrumb" }
+        },
+        {
             "@type": "Article",
             "@id": "https://example.com/post/#article",
             "headline": "Article Title",
+            "isPartOf": { "@id": "https://example.com/post/" },
+            "mainEntityOfPage": { "@id": "https://example.com/post/" },
             "author": { "@id": "https://example.com/#author-1" },
             "publisher": { "@id": "https://example.com/#organization" },
             "comment": [
@@ -290,6 +300,37 @@ The package outputs clean schema with proper relationships using the @graph form
     ]
 }
 ```
+
+### Page and entity nodes
+
+The graph follows the same shape Yoast SEO emits, so it validates the same way
+in Google's Rich Results test and can be consumed by the same tooling:
+
+- Every home and singular request gets a **page node** whose `@id` is the bare
+  permalink (no fragment). Its `@type` is `WebPage` unless the post's schema
+  type is itself a page type (`AboutPage`, `ContactPage`, …), in which case
+  that single node *is* the page.
+- The post's **entity** (`Article`, `Service`, `Hotel`, `VideoObject`, …) is a
+  separate node with `@id` = `{permalink}#{fragment}` and links **up** to the
+  page via both `isPartOf` and `mainEntityOfPage`. The page never references
+  the entity.
+
+`SchemaIds` centralises these conventions so external providers produce the
+same shape:
+
+```php
+use BuiltNorth\WPSchema\Services\SchemaIds;
+
+$piece = new SchemaPiece(SchemaIds::entity_id($post, '#localbusiness'), 'Hotel', [], 'localbusiness');
+
+foreach (SchemaIds::page_links($post) as $property => $reference) {
+    $piece->set($property, $reference);
+}
+```
+
+If your provider emits the entity for a post type, opt that post type out of
+the generic fallback with `wp_schema_framework_generic_skip_post_types` so the
+graph does not carry two entities for one post.
 
 ## Contexts
 
@@ -351,6 +392,7 @@ The handle is derived by stripping the home URL and slugifying, so both
 
 - `wp_schema_framework_post_type_override` - Override schema type for specific posts
 - `wp_schema_framework_post_type_mapping` - Map post types to schema types
+- `wp_schema_framework_generic_skip_post_types` - Post types whose entity node another provider emits (skips the generic fallback)
 - `wp_schema_framework_post_description` - Provide custom post descriptions
 - `wp_schema_framework_homepage_type` - Override homepage schema type
 - `wp_schema_framework_homepage_data` - Modify homepage schema data

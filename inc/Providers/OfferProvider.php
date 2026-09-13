@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 use WP_Post;
 
 /**
@@ -33,12 +34,19 @@ class OfferProvider implements SchemaProviderInterface
 			return [];
 		}
 
-		$piece_id = $post->post_type . '-' . $post->ID;
-		$offer    = new SchemaPiece($piece_id, 'Offer');
+		$piece_id = SchemaIds::entity_id($post, '#offer');
+		if ($piece_id === '') {
+			return [];
+		}
+		$offer = new SchemaPiece($piece_id, 'Offer', [], 'offer');
 
 		$offer
 			->set('name', $post->post_title)
 			->set('url', get_permalink($post->ID));
+
+		foreach (SchemaIds::page_links($post) as $property => $reference) {
+			$offer->set($property, $reference);
+		}
 
 		$description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);
 		if ($description !== '') {

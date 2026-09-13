@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 use WP_Post;
 
 /**
@@ -35,12 +36,19 @@ class ServiceProvider implements SchemaProviderInterface
 			return [];
 		}
 
-		$piece_id = $post->post_type . '-' . $post->ID;
-		$service  = new SchemaPiece($piece_id, 'Service');
+		$piece_id = SchemaIds::entity_id($post, '#service');
+		if ($piece_id === '') {
+			return [];
+		}
+		$service = new SchemaPiece($piece_id, 'Service', [], 'service');
 
 		$service
 			->set('name', $post->post_title)
 			->set('url', get_permalink($post->ID));
+
+		foreach (SchemaIds::page_links($post) as $property => $reference) {
+			$service->set($property, $reference);
+		}
 
 		$description = apply_filters('wp_schema_framework_post_description', '', $post->ID, $post);
 		if ($description !== '') {

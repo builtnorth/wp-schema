@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Generic Schema Provider
@@ -55,11 +56,24 @@ class GenericSchemaProvider implements SchemaProviderInterface
         if (!$post || !isset($post->ID)) {
             return false;
         }
-        
+
+        /**
+         * Post types whose entity node is emitted by a dedicated (often external)
+         * provider. This fallback must not emit a second entity for them, and it
+         * can't know by *type* — a polaris_location may resolve to Hotel, Store,
+         * GasStation… — so the owning package opts its post type out here.
+         *
+         * @param string[] $post_types
+         */
+        $skip_post_types = (array) apply_filters('wp_schema_framework_generic_skip_post_types', []);
+        if (in_array($post->post_type, $skip_post_types, true)) {
+            return false;
+        }
+
         // Get schema type with filters
         $default_type = $this->get_default_schema_type($post->post_type);
         $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
-        
+
         // Only handle types that don't have specific providers
         return !empty($schema_type) && !in_array($schema_type, $this->handled_types, true);
     }
@@ -148,9 +162,12 @@ class GenericSchemaProvider implements SchemaProviderInterface
         $default_type = $this->get_default_schema_type($post->post_type);
         $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
         
-        // Create generic schema piece with unique ID
-        $piece_id = $post->post_type . '-' . $post->ID;
-        $generic = new SchemaPiece($piece_id, $schema_type);
+        $fragment = '#' . strtolower($schema_type);
+        $piece_id = SchemaIds::entity_id($post, $fragment);
+        if ($piece_id === '') {
+            return [];
+        }
+        $generic = new SchemaPiece($piece_id, $schema_type, [], strtolower($schema_type));
         
         // Add common properties that most schema types support
         $generic
@@ -190,12 +207,12 @@ class GenericSchemaProvider implements SchemaProviderInterface
             $generic->add_reference('publisher', '#organization');
         }
         
-        // Add website reference
-        $generic->add_reference('isPartOf', '#website');
-        
-        // Add breadcrumb reference
-        $generic->add_reference('breadcrumb', '#breadcrumb');
-        
+        // Entity → page. isPartOf/breadcrumb belong to the WebPage node, which
+        // WebPageProvider emits alongside this entity; the entity just points up.
+        foreach (SchemaIds::page_links($post) as $property => $reference) {
+            $generic->set($property, $reference);
+        }
+
         // Allow filtering of generic schema data
         $data = apply_filters('wp_schema_framework_generic_data', $generic->to_array(), $post->ID, $post);
         $data = apply_filters('wp_schema_framework_' . strtolower($schema_type) . '_data', $data, $post->ID, $post);

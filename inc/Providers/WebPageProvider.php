@@ -6,48 +6,52 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * WebPage Provider
- * 
- * Provides WebPage schema for pages and posts with WebPage schema type.
- * 
+ *
+ * Emits the WebPage node for every front-page and singular request. The page
+ * node is *always* typed WebPage regardless of which entity type the post type
+ * resolves to — that type belongs to the entity node (Article, Service, Hotel…),
+ * which links up to this page via isPartOf + mainEntityOfPage. Mirrors Yoast,
+ * where WebPage is unconditional and the "article type" setting drives only the
+ * entity.
+ *
+ * The one case it yields: when the resolved type is a WebPage subtype that
+ * PageTypeProvider handles (AboutPage, ContactPage…), that provider emits the
+ * page node instead, so we don't produce two.
+ *
  * @since 3.0.0
  */
 class WebPageProvider implements SchemaProviderInterface
 {
     public function can_provide(string $context): bool
     {
-        // Handle homepage
         if ($context === 'home') {
-            $seo_settings = get_option('polaris_seo_settings', []);
-            $schema_type = $seo_settings['home']['default_schema_type'] ?? 'WebPage';
-            $schema_type = apply_filters('wp_schema_framework_homepage_type', $schema_type);
-            return $schema_type === 'WebPage';
+            return true;
         }
-        
+
         if ($context !== 'singular') {
             return false;
         }
-        
+
         $post = get_queried_object();
         if (!$post || !isset($post->ID)) {
             return false;
         }
-        
-        // Get schema type with filters
+
         $default_type = $this->get_default_schema_type($post->post_type);
         $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
-        
-        // Handle WebPage and generic page types
-        return $schema_type === 'WebPage';
+
+        return !in_array($schema_type, PageTypeProvider::get_supported_types(), true);
     }
-    
+
     public function get_pieces(string $context): array
     {
         // Handle homepage
         if ($context === 'home') {
-            $webpage = new SchemaPiece('homepage', 'WebPage');
+            $webpage = new SchemaPiece(SchemaIds::home_webpage_id(), 'WebPage', [], 'webpage');
             
             $webpage
                 ->set('name', get_bloginfo('name'))
@@ -116,13 +120,15 @@ class WebPageProvider implements SchemaProviderInterface
         if (!$post) {
             return [];
         }
-        // Get schema type
-        $default_type = $this->get_default_schema_type($post->post_type);
-        $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
-        
-        // Create webpage piece with unique ID based on post type and ID
-        $piece_id = $post->post_type . '-' . $post->ID;
-        $webpage = new SchemaPiece($piece_id, $schema_type);
+
+        $webpage_id = SchemaIds::webpage_id($post);
+        if ($webpage_id === '') {
+            return [];
+        }
+
+        // Always WebPage: the entity type (Article, Service, Hotel…) lives on the
+        // entity node, which points back here via mainEntityOfPage.
+        $webpage = new SchemaPiece($webpage_id, 'WebPage', [], 'webpage');
         
         $webpage
             ->set('headline', $post->post_title)
