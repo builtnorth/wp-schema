@@ -16,26 +16,71 @@ class SchemaPiece
 {
     private string $id;
     private string $type;
+    private string $name;
     private array $data;
     private array $references = [];
-    
-    public function __construct(string $id, string $type, array $data = [])
+
+    /**
+     * @param string      $id   The JSON-LD @id. Prefer an absolute IRI.
+     * @param string      $type The schema.org @type.
+     * @param array       $data Initial properties.
+     * @param string|null $name Short, site-independent handle used to build hook
+     *                          names (e.g. "organization"). Derived from $id when
+     *                          omitted — see derive_name().
+     */
+    public function __construct(string $id, string $type, array $data = [], ?string $name = null)
     {
         $this->id = $id;
         $this->type = $type;
+        $this->name = $name !== null && $name !== '' ? $name : self::derive_name($id);
         $this->data = $data;
-        
+
         // Always include @type and @id
         $this->data['@type'] = $type;
         $this->data['@id'] = $id;
     }
-    
+
     /**
      * Get piece ID
      */
     public function get_id(): string
     {
         return $this->id;
+    }
+
+    /**
+     * Short handle for this piece, used for hook names.
+     *
+     * Separate from the @id because @ids are absolute IRIs and therefore
+     * site-specific: deriving a hook name straight from one yields
+     * `..._https___example.com_organization`, which no plugin can target
+     * portably. Mirrors the short identifiers Yoast (`wpseo_schema_organization`)
+     * and Rank Math use alongside their URL-based @ids.
+     */
+    public function get_name(): string
+    {
+        return $this->name;
+    }
+
+    /**
+     * Reduce an @id to a site-independent handle.
+     *
+     * Strips the home URL so an absolute IRI and a bare fragment for the same
+     * node agree: both "https://example.com/#organization" and "#organization"
+     * become "organization".
+     */
+    private static function derive_name(string $id): string
+    {
+        if (function_exists('home_url')) {
+            $home = \rtrim((string) \home_url('/'), '/') . '/';
+            if (\str_starts_with($id, $home)) {
+                $id = \substr($id, \strlen($home));
+            }
+        }
+
+        $id = \ltrim($id, '#/');
+
+        return \strtolower(\preg_replace('/[^A-Za-z0-9_-]+/', '_', $id) ?? $id);
     }
     
     /**

@@ -25,7 +25,30 @@ class SchemaGraph
      */
     public function add_piece(SchemaPiece $piece): self
     {
-        $this->pieces[$piece->get_id()] = $piece;
+        $id = $piece->get_id();
+
+        // Last writer wins, which silently discards the earlier piece. Two
+        // providers claiming one @id is nearly always a bug — to contribute
+        // properties to an existing node, hook wp_schema_framework_piece_{type}
+        // or wp_schema_framework_piece_id_{name} instead of emitting a second
+        // piece. Warn rather than merge: merging would need per-property rules
+        // (scalars vs lists) that this graph has no way to infer.
+        if (isset($this->pieces[$id]) && function_exists('_doing_it_wrong')) {
+            $existing = $this->pieces[$id];
+            _doing_it_wrong(
+                __METHOD__,
+                sprintf(
+                    'Two schema pieces share the @id "%1$s" (%2$s replaced by %3$s). The earlier piece was discarded.',
+                    esc_html($id),
+                    esc_html($existing->get_type()),
+                    esc_html($piece->get_type())
+                ),
+                '1.4.0'
+            );
+        }
+
+        $this->pieces[$id] = $piece;
+
         return $this;
     }
     
@@ -107,10 +130,9 @@ class SchemaGraph
             }
         }
         
-        // Allow modification by piece ID
+        // Allow modification by piece name (site-independent — see SchemaPiece::get_name())
         foreach ($this->pieces as $piece) {
-            $id = str_replace(['#', '/', ':'], ['', '_', '_'], $piece->get_id());
-            $id_filter = 'wp_schema_framework_piece_id_' . $id;
+            $id_filter = 'wp_schema_framework_piece_id_' . $piece->get_name();
             $filtered_piece = apply_filters($id_filter, $piece, $context);
             
             if ($filtered_piece instanceof SchemaPiece) {
