@@ -375,7 +375,6 @@ class SchemaTypeRegistry
             'polaris_coupon' => 'Offer',
             'polaris_promotion' => 'Offer',
             'polaris_service' => 'Service',
-            'service' => 'Service',
             'listing' => 'LocalBusiness',
             'polaris_listing' => 'LocalBusiness',
         ];

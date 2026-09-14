@@ -66,7 +66,7 @@ class OfferProvider implements SchemaProviderInterface
 			}
 		}
 
-		$org_id = $this->organization_id();
+		$org_id = SchemaIds::organization_id();
 		if ($org_id !== '') {
 			$offer->set('seller', [ '@id' => $org_id ]);
 		}
@@ -95,10 +95,4 @@ class OfferProvider implements SchemaProviderInterface
 		);
 	}
 
-	private function organization_id(): string
-	{
-		$default = SchemaIds::organization_id();
-
-		return (string) apply_filters('wp_schema_framework_organization_id', $default);
-	}
 }

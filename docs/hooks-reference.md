@@ -1,609 +1,380 @@
-# WP Schema Framework - Complete Hooks & Filters Reference
+# Hooks reference
+
+Every hook wp-schema fires, verified against source. Parameter counts are the
+ones the `apply_filters()`/`do_action()` call site actually passes — `add_filter`
+with a higher `$accepted_args` than listed here receives `null`.
+
+Hook names use the `wp_schema_framework_` prefix throughout. This is the
+package's established public API; it predates the current naming convention and
+is not changed here, since every name below is a live integration point.
 
 ## Actions
 
-### Core Actions
+### `wp_schema_framework_register_providers`
+`App.php:74` — fires during `init()`, after core providers are registered and
+after `$initialized` is set true, so `register_provider()` works from callbacks.
 
-#### `wp_schema_framework_register_providers`
-Fired when the framework is ready to register providers.
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$app` | `App` |
 
-**Parameters:**
-- `$app` (App) - The main App instance
+Prefer `Schema::registerProvider()` over hooking this directly; it handles the
+case where the action has already fired.
 
-**Usage:**
-```php
-add_action('wp_schema_framework_register_providers', function($app) {
-    $app->get_registry()->register('custom', new CustomProvider());
-});
+### `wp_schema_framework_ready`
+`App.php:77` — fires immediately after the registration action.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$app` | `App` |
+
+### `wp_schema_framework_before_output`
+`Services/OutputService.php:47` — after the context check passes, before the
+graph is built.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$context` | `string` |
+
+### `wp_schema_framework_after_output`
+`Services/OutputService.php:58` — fires only when a non-empty graph was printed.
+An empty graph returns early (`OutputService.php:51-53`), so this does **not**
+fire on every request where `before_output` did.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$context` | `string` |
+| 2 | `$graph` | `SchemaGraph` |
+
+## Global control
+
+### `wp_schema_framework_output_enabled`
+`Services/ContextDetector.php:46` — return false to suppress all output.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$enabled` | `bool` (default `true`) |
+
+### `wp_schema_framework_context`
+`Services/ContextDetector.php:37` — override the detected context.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$context` | `string` |
+
+Returning a value outside the known set effectively disables output: providers
+compare `$context` against literal strings, and `should_generate_schema()`
+rejects `404` and `unknown`.
+
+## Graph and piece filters
+
+Applied in the order listed (`Graph/SchemaGraph.php:118-144`, then
+`Services/OutputService.php:83-101`).
+
+### `wp_schema_framework_pieces`
+`Graph/SchemaGraph.php:121`
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$pieces` | `SchemaPiece[]`, keyed by `@id` |
+| 2 | `$context` | `string` |
+
+**The array holds `SchemaPiece` objects, not arrays,** and is keyed by `@id`. The
+result is immediately iterated with `get_type()` called on each element, so a
+plain array injected here is a fatal error. Append with
+`$pieces[$piece->get_id()] = $piece;`.
+
+### `wp_schema_framework_piece_{type}`
+`Graph/SchemaGraph.php:125-126` — `{type}` is the node's `@type`, lowercased.
+Hence `wp_schema_framework_piece_article`, `..._webpage`, `..._organization`,
+`..._localbusiness`.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$piece` | `SchemaPiece` |
+| 2 | `$context` | `string` |
+
+Return the piece. A return value that is not a `SchemaPiece` is ignored and the
+original is kept (`SchemaGraph.php:128-130`).
+
+### `wp_schema_framework_piece_id_{name}`
+`Graph/SchemaGraph.php:135-136` — `{name}` is the piece's handle, **not** its
+`@id`. See the README's "Piece names" section for how the handle is derived.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$piece` | `SchemaPiece` |
+| 2 | `$context` | `string` |
+
+This is the supported way to add properties to a node another provider owns.
+
+### `wp_schema_framework_graph`
+`Services/OutputService.php:83` — the complete `['@context' => …, '@graph' => …]`
+array. Per-node `@context` keys have already been stripped.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$graph_data` | `array` |
+
+Output is skipped when `$graph_data['@graph']` comes back empty
+(`OutputService.php:93-95`).
+
+### `wp_schema_framework_json_output`
+`Services/OutputService.php:101` — the encoded string, immediately before it is
+echoed inside the `<script>` tag.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$json` | `string` |
+| 2 | `$graph_data` | `array` |
+
+The encode uses `JSON_HEX_TAG` and friends to prevent `</script>` breakout. If
+you re-encode here, preserve those flags.
+
+## Provider data filters
+
+Each fires near the end of its provider's `get_pieces()`, receiving the node as
+an array. Note the parameter signatures are **not** uniform — some pass
+`$context`, others pass `$post_id`/`$post`.
+
+| Hook | Params | Source |
+|---|---|---|
+| `wp_schema_framework_organization_data` | `$data`, `$context` | `Providers/OrganizationProvider.php:42` |
+| `wp_schema_framework_website_data` | `$data`, `$context` | `Providers/WebsiteProvider.php:75` |
+| `wp_schema_framework_article_data` | `$data`, `$post_id`, `$post` | `Providers/ArticleProvider.php:192` |
+| `wp_schema_framework_webpage_data` | `$data`, `$post_id`, `$post` | `Providers/WebPageProvider.php:178` |
+| `wp_schema_framework_author_data` | `$data`, `$author_id`, `$context` | `Providers/AuthorProvider.php:74` |
+| `wp_schema_framework_person_data` | `$data`, `$post_id`, `$post` | `Providers/PersonProvider.php:82` |
+| `wp_schema_framework_service_data` | `$data`, `$post_id`, `$post` | `Providers/ServiceProvider.php:76` |
+| `wp_schema_framework_offer_data` | `$data`, `$post_id`, `$post` | `Providers/OfferProvider.php:74` |
+| `wp_schema_framework_product_data` | `$data`, `$context`, `$post_id` | `Providers/ProductProvider.php:137` |
+| `wp_schema_framework_event_data` | `$data`, `$context`, `$post_id` | `Providers/EventProvider.php:151` |
+| `wp_schema_framework_archive_data` | `$data`, `$context` | `Providers/ArchiveProvider.php:57` |
+| `wp_schema_framework_search_results_data` | `$data`, `$context`, `$search_query` | `Providers/SearchResultsProvider.php:91` |
+| `wp_schema_framework_media_data` | `$data`, `$context`, `$attachment_id` | `Providers/MediaProvider.php:103` |
+| `wp_schema_framework_page_type_data` | `$data`, `$context`, `$schema_type` | `Providers/PageTypeProvider.php:115` |
+| `wp_schema_framework_generic_data` | `$data`, `$post_id`, `$post` | `Providers/GenericSchemaProvider.php:217` |
+
+On the home context, `ArticleProvider`, `WebPageProvider`, and
+`GenericSchemaProvider` pass `0` and `null` for `$post_id`/`$post`
+(`ArticleProvider.php:107`, `WebPageProvider.php:112`,
+`GenericSchemaProvider.php:148`). Guard against a null `$post`.
+
+### `wp_schema_framework_{lowercase_type}_data`
+`Providers/GenericSchemaProvider.php:149, 218` — a dynamic filter built from the
+resolved schema type, lowercased: `wp_schema_framework_recipe_data`,
+`wp_schema_framework_videoobject_data`, and so on. Fires only for types the
+generic fallback handles.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$data` | `array` |
+| 2 | `$post_id` | `int` (`0` on home) |
+| 3 | `$post` | `WP_Post|null` |
+
+### `wp_schema_framework_organization_type`
+`Providers/WebsiteProvider.php:30`
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$type` | `string` (default `'Organization'`) |
+
+Returning `'WebSite'` makes `WebsiteProvider` stand down entirely to avoid a
+duplicate node. It does **not** change the `Organization` node's own `@type` —
+`OrganizationProvider` never reads this filter. To retype that node, filter
+`wp_schema_framework_organization_data` or the piece directly.
+
+### `wp_schema_framework_website_can_provide`
+`Providers/WebsiteProvider.php:23`
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$can_provide` | `bool` |
+| 2 | `$context` | `string` |
+
+## Post type and content resolution
+
+### `wp_schema_framework_post_type_override`
+The main lever for deciding a post's schema type. Called by `ArticleProvider:41`,
+`WebPageProvider:45`, `GenericSchemaProvider:75, 163`, `PersonProvider:97`,
+`OfferProvider:89`, `ServiceProvider:91`.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$schema_type` | `string` |
+| 2 | `$post_id` | `int` |
+| 3 | `$post_type` | `string` |
+| 4 | `$post` | `WP_Post` |
+
+Because several providers call this independently to decide `can_provide()`, the
+filter must be **deterministic** for a given post — returning different values
+across calls yields a graph with missing or duplicated nodes.
+
+Every caller passes its own mapped default, so a filter that returns the incoming
+value unchanged is always a no-op. `WebPageProvider` is the single caller that
+decides whether a page is a specialized subtype; `PageTypeProvider` reads the
+resolved type off the node's `@type` rather than calling this filter again, so
+the two can never disagree.
+
+### `wp_schema_framework_post_type_mapping`
+Per-post-type default, consulted before the override above. `ArticleProvider:214`,
+`WebPageProvider:216`, `GenericSchemaProvider:235`, `PersonProvider:95`,
+`OfferProvider:87`, `ServiceProvider:89`.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$schema_type` | `string` (often `''`) |
+| 2 | `$post_type` | `string` |
+
+Each provider seeds its own defaults — `ArticleProvider` knows `post`, `news`,
+`blog_post`; `WebPageProvider` knows `page`; the others pass `''`. This filter is
+**not** fed by `SchemaTypeRegistry::get_post_type_mappings()`; that list is a
+separate UI-facing map. Wiring the two together is the consuming plugin's job.
+
+### `wp_schema_framework_post_type_mappings`
+`Services/SchemaTypeRegistry.php:383` — the registry's post-type map, used by
+`Schema::getPostTypeMappings()` and `getSchemaTypeForPostType()`. Note the
+trailing `s` distinguishing it from the per-provider filter above.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$mappings` | `array<string, string>` |
+
+### `wp_schema_framework_generic_skip_post_types`
+`Providers/GenericSchemaProvider.php:68` — post types whose entity node a
+dedicated provider emits, so the fallback does not emit a second one.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$post_types` | `string[]` |
+
+### `wp_schema_framework_post_description`
+`ArticleProvider:149`, `WebPageProvider:148`, `PersonProvider:51`,
+`OfferProvider:51`, `ServiceProvider:53`. A non-empty return wins over the post
+excerpt.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$description` | `string` |
+| 2 | `$post_id` | `int` |
+| 3 | `$post` | `WP_Post` |
+
+### `wp_schema_framework_homepage_type`
+`ArticleProvider:26, 52`, `GenericSchemaProvider:46, 87`. Seeded from
+`get_option('polaris_seo_settings')['home']['default_schema_type']`, defaulting to
+`'WebPage'`.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$type` | `string` |
+
+**This package reads that option but never writes it** — it is owned by the SEO
+plugin. Sites without that plugin should use this filter rather than seeding the
+option.
+
+### `wp_schema_framework_homepage_data`
+`ArticleProvider:106`, `WebPageProvider:111`, `GenericSchemaProvider:147`.
+Applied *before* the corresponding `*_data` filter on the same node.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$data` | `array` |
+
+### `wp_schema_framework_has_breadcrumb`
+`Providers/WebPageProvider.php:106, 173` — defaults to `false`.
+
+| # | Param | Type |
+|---|-------|------|
+| 1 | `$has_breadcrumb` | `bool` |
+
+Every node that references `#breadcrumb` adds it **only** when this returns true,
+because a reference to a `BreadcrumbList` that nothing emits is a dangling
+reference. A package that emits a `#breadcrumb` node must return true here.
+
+This gate is consistent across all page nodes — `WebPageProvider:106, 173`,
+`ArchiveProvider:40`, `SearchResultsProvider:40`, and `MediaProvider:100`. None
+of them reference a breadcrumb node that is not in the graph.
+
+## Archive and search
+
+| Hook | Params | Source |
+|---|---|---|
+| `wp_schema_framework_archive_item_type` | `$type`, `$post_type` | `Providers/ArchiveProvider.php:249` |
+| `wp_schema_framework_search_item_type` | `$type`, `$post_type` | `Providers/SearchResultsProvider.php:203` |
+
+Both default to `''`; a non-empty return is used verbatim as the list item's
+`@type`.
+
+## Specialized page types
+
+Consulted by `PageTypeProvider` for its corresponding schema type only. The
+resulting properties land on the multi-typed page node (`["WebPage","FAQPage"]`),
+not on a node of their own.
+
+| Hook | Params | Source |
+|---|---|---|
+| `wp_schema_framework_faq_items` | `$items`, `$post_id` | `PageTypeProvider.php:254` |
+| `wp_schema_framework_collection_items` | `$items`, `$post_id` | `PageTypeProvider.php:270` |
+| `wp_schema_framework_gallery_items` | `$items`, `$post_id` | `PageTypeProvider.php:283` |
+| `wp_schema_framework_gallery_image_count` | `$count`, `$post_id` | `PageTypeProvider.php:290` |
+
+FAQ items land on `mainEntity`; collection and gallery items land on `hasPart`.
+
+## Commerce and event integration
+
+Detection and data hooks for custom implementations. See
+[conflict-detection.md](conflict-detection.md) for when the built-in providers
+stand down.
+
+| Hook | Params | Source |
+|---|---|---|
+| `wp_schema_framework_is_product` | `$is_product`, `$post_id`, `$context` | `ProductProvider.php:48` |
+| `wp_schema_framework_get_product_data` | `$data`, `$post_id` | `ProductProvider.php:154` |
+| `wp_schema_framework_is_event` | `$is_event`, `$post_id`, `$context` | `EventProvider.php:62` |
+| `wp_schema_framework_get_event_data` | `$data`, `$post_id` | `EventProvider.php:168` |
+
+`get_product_data` / `get_event_data` default to `null` and take priority over
+every built-in detection path when they return an array. Returning an empty
+array means "no data" and the provider emits nothing.
+
+Plugin-specific data filters, each firing only when that integration supplies the
+data: `wp_schema_framework_woocommerce_product_data` (`ProductProvider.php:262`),
+`wp_schema_framework_edd_product_data` (`:312`),
+`wp_schema_framework_bigcommerce_product_data` (`:330`),
+`wp_schema_framework_tribe_events_data` (`EventProvider.php:297`),
+`wp_schema_framework_events_manager_data` (`:358`),
+`wp_schema_framework_mec_data` (`:406`),
+`wp_schema_framework_event_organiser_data` (`:447`),
+`wp_schema_framework_gatherpress_data` (`:514`).
+
+Conflict overrides: `wp_schema_framework_woocommerce_schema_active`
+(`ProductProvider.php:350`) and `wp_schema_framework_tribe_events_schema_active`
+(`EventProvider.php:691`), both `bool`.
+
+## Type registry
+
+| Hook | Params | Source |
+|---|---|---|
+| `wp_schema_framework_type_registry_types` | `$types` | `Services/SchemaTypeRegistry.php:349` |
+| `wp_schema_framework_available_types` | `$types` | `App.php:80` |
+
+`App::init()` registers `SchemaTypeRegistry::get_available_types()` onto
+`wp_schema_framework_available_types` at default priority. Because that callback
+**ignores the incoming value** and returns the full list, anything hooked at an
+earlier priority is discarded. Filter at priority > 10, or use
+`wp_schema_framework_type_registry_types` to shape the list at its source.
+
+## Dangling references
+
+The package emits no unconditional references to nodes it does not supply. The
+one cross-package reference, `#breadcrumb`, is gated everywhere behind
+`wp_schema_framework_has_breadcrumb`, so it appears only when a package has
+declared that it emits a `BreadcrumbList`.
+
+Verify a page's graph with:
+
+```bash
+wp schema check --post=<id>
 ```
 
-#### `wp_schema_framework_ready`
-Fired when the framework is fully initialized and ready.
-
-**Parameters:**
-- `$app` (App) - The main App instance
-
-**Usage:**
-```php
-add_action('wp_schema_framework_ready', function($app) {
-    // Framework is ready, do custom initialization
-});
-```
-
-#### `wp_schema_framework_before_output`
-Fired before schema is output to the page.
-
-**Parameters:**
-- `$context` (string) - Current page context
-
-**Usage:**
-```php
-add_action('wp_schema_framework_before_output', function($context) {
-    // Perform actions before schema output
-});
-```
-
-#### `wp_schema_framework_after_output`
-Fired after schema has been output to the page.
-
-**Parameters:**
-- `$context` (string) - Current page context
-- `$graph` (SchemaGraph) - The graph that was output
-
-**Usage:**
-```php
-add_action('wp_schema_framework_after_output', function($context, $graph) {
-    // Perform actions after schema output
-}, 10, 2);
-```
-
-## Filters
-
-### Global Control Filters
-
-#### `wp_schema_framework_output_enabled`
-Enable or disable all schema output.
-
-**Parameters:**
-- `$enabled` (bool) - Whether output is enabled (default: true)
-
-**Usage:**
-```php
-// Disable schema on specific pages
-add_filter('wp_schema_framework_output_enabled', function($enabled) {
-    if (is_page('no-schema')) {
-        return false;
-    }
-    return $enabled;
-});
-```
-
-#### `wp_schema_framework_context`
-Override the detected page context.
-
-**Parameters:**
-- `$context` (string) - Detected context ('home', 'singular', 'attachment', 'archive', 'search', '404', 'unknown')
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_context', function($context) {
-    if (is_page('special')) {
-        return 'custom_context';
-    }
-    return $context;
-});
-```
-
-### Graph & Piece Filters
-
-#### `wp_schema_framework_pieces`
-Modify the complete array of schema pieces before assembly.
-
-**Parameters:**
-- `$pieces` (array) - Array of SchemaPiece objects
-- `$context` (string) - Current page context
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_pieces', function($pieces, $context) {
-    // Add custom piece
-    $pieces[] = new SchemaPiece('#custom', 'CustomType');
-    return $pieces;
-}, 10, 2);
-```
-
-#### `wp_schema_framework_graph`
-Modify the final schema graph before output.
-
-**Parameters:**
-- `$graph` (array) - Complete schema graph array
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_graph', function($graph) {
-    // Modify final output
-    return $graph;
-});
-```
-
-#### `wp_schema_framework_json_output`
-Modify the final JSON-LD string before it's output.
-
-**Parameters:**
-- `$json` (string) - JSON-LD string
-- `$graph_data` (array) - Original graph data array
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_json_output', function($json, $graph_data) {
-    // Modify JSON string (e.g., minify, add custom formatting)
-    return $json;
-}, 10, 2);
-```
-
-#### `wp_schema_framework_piece_{type}`
-Modify a specific schema piece by type.
-
-**Parameters:**
-- `$piece` (SchemaPiece) - The schema piece
-- `$context` (string) - Current page context
-
-**Available types:** `article`, `webpage`, `organization`, `person`, `event`, `product`, etc.
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_piece_article', function($piece, $context) {
-    $piece->set('customProperty', 'value');
-    return $piece;
-}, 10, 2);
-```
-
-#### `wp_schema_framework_piece_id_{name}`
-Modify a specific schema piece by name.
-
-`{name}` is the piece's short handle, not its `@id`. The handle is derived by
-stripping the home URL and slugifying, so a node identified by an absolute IRI
-and one identified by a bare fragment share the same hook — and that hook is the
-same on every site:
-
-| `@id` | hook |
-|---|---|
-| `https://example.com/#organization` | `wp_schema_framework_piece_id_organization` |
-| `#organization` | `wp_schema_framework_piece_id_organization` |
-
-A provider can pass a handle explicitly to `SchemaPiece` when the derived one
-would be unstable (an `@id` containing a post ID, say).
-
-**Parameters:**
-- `$piece` (SchemaPiece) - The schema piece
-- `$context` (string) - Current page context
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_piece_id_organization', function($piece, $context) {
-    $piece->set('telephone', '+1234567890');
-    return $piece;
-}, 10, 2);
-```
-
-This is also the supported way to contribute properties to a node another
-provider owns. Emitting a second piece with the same `@id` replaces the first
-and triggers `_doing_it_wrong`.
-
-### Provider Data Filters
-
-#### `wp_schema_framework_organization_data`
-Modify organization schema data.
-
-**Parameters:**
-- `$data` (array) - Organization schema array
-- `$context` (string) - Current page context
-
-#### `wp_schema_framework_organization_type`
-Override the organization schema type.
-
-**Parameters:**
-- `$type` (string) - Organization type (default: 'Organization')
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_organization_type', function($type) {
-    return 'LocalBusiness';
-});
-```
-
-#### `wp_schema_framework_website_data`
-Modify website schema data.
-
-**Parameters:**
-- `$data` (array) - Website schema array
-- `$context` (string) - Current page context
-
-#### `wp_schema_framework_website_can_provide`
-Control whether WebSite schema should be output.
-
-**Parameters:**
-- `$can_provide` (bool) - Whether to output (default: true)
-- `$context` (string) - Current page context
-
-#### `wp_schema_framework_article_data`
-Modify article schema data.
-
-**Parameters:**
-- `$data` (array) - Article schema array
-- `$post_id` (int) - Post ID (0 if not applicable)
-- `$post` (WP_Post|null) - Post object
-
-#### `wp_schema_framework_webpage_data`
-Modify webpage schema data.
-
-**Parameters:**
-- `$data` (array) - WebPage schema array
-- `$post_id` (int) - Post ID
-- `$post` (WP_Post) - Post object
-
-#### `wp_schema_framework_author_data`
-Modify author/person schema data.
-
-**Parameters:**
-- `$data` (array) - Person schema array
-- `$author_id` (int) - Author user ID
-- `$context` (string) - Current page context
-
-#### `wp_schema_framework_archive_data`
-Modify archive page schema data.
-
-**Parameters:**
-- `$data` (array) - Archive schema array
-- `$context` (string) - Current page context
-
-#### `wp_schema_framework_search_results_data`
-Modify search results page schema data.
-
-**Parameters:**
-- `$data` (array) - Search results schema array
-- `$context` (string) - Current page context
-- `$search_query` (string) - Search query string
-
-#### `wp_schema_framework_media_data`
-Modify media attachment schema data.
-
-**Parameters:**
-- `$data` (array) - Media schema array
-- `$context` (string) - Current page context
-- `$attachment_id` (int) - Attachment ID
-
-#### `wp_schema_framework_page_type_data`
-Modify specialized page type schema data.
-
-**Parameters:**
-- `$data` (array) - Page type schema array
-- `$context` (string) - Current page context
-- `$schema_type` (string) - Detected schema type
-
-#### `wp_schema_framework_generic_skip_post_types`
-Post types whose entity node is emitted by a dedicated provider. GenericSchemaProvider
-skips these so it never emits a second entity for the same post. Keyed by post type
-because the fallback cannot know by *type* — one post type may resolve to Hotel,
-Store, GasStation… depending on per-post settings.
-
-**Parameters:**
-- `$post_types` (string[]) - Post types to skip
-
-**Example:**
-```php
-add_filter('wp_schema_framework_generic_skip_post_types', function($post_types) {
-    $post_types[] = 'my_location';
-    return $post_types;
-});
-```
-
-### Product Schema Filters
-
-#### `wp_schema_framework_product_data`
-Modify product schema data.
-
-**Parameters:**
-- `$data` (array) - Product schema array
-- `$context` (string) - Current page context
-- `$post_id` (int) - Product post ID
-
-#### `wp_schema_framework_is_product`
-Determine if a post should be treated as a product.
-
-**Parameters:**
-- `$is_product` (bool) - Whether it's a product
-- `$post_id` (int) - Post ID
-- `$context` (string) - Current page context
-
-#### `wp_schema_framework_get_product_data`
-Provide custom product data.
-
-**Parameters:**
-- `$data` (array|null) - Product data array or null
-- `$post_id` (int) - Product post ID
-
-#### `wp_schema_framework_woocommerce_product_data`
-Modify WooCommerce product data.
-
-**Parameters:**
-- `$data` (array) - Product data array
-- `$product` (WC_Product) - WooCommerce product object
-
-#### `wp_schema_framework_woocommerce_schema_active`
-Control whether WooCommerce's own schema is considered active.
-
-**Parameters:**
-- `$active` (bool) - Whether WooCommerce schema is active
-
-#### `wp_schema_framework_edd_product_data`
-Modify Easy Digital Downloads product data.
-
-**Parameters:**
-- `$data` (array) - Product data array
-- `$download` (EDD_Download) - EDD download object
-
-#### `wp_schema_framework_bigcommerce_product_data`
-Modify BigCommerce product data.
-
-**Parameters:**
-- `$data` (array) - Product data array
-- `$product_id` (int) - Product post ID
-
-### Event Schema Filters
-
-#### `wp_schema_framework_event_data`
-Modify event schema data.
-
-**Parameters:**
-- `$data` (array) - Event schema array
-- `$context` (string) - Current page context
-- `$post_id` (int) - Event post ID
-
-#### `wp_schema_framework_is_event`
-Determine if a post should be treated as an event.
-
-**Parameters:**
-- `$is_event` (bool) - Whether it's an event
-- `$post_id` (int) - Post ID
-- `$context` (string) - Current page context
-
-#### `wp_schema_framework_get_event_data`
-Provide custom event data.
-
-**Parameters:**
-- `$data` (array|null) - Event data array or null
-- `$post_id` (int) - Event post ID
-
-#### `wp_schema_framework_tribe_events_data`
-Modify The Events Calendar event data.
-
-**Parameters:**
-- `$data` (array) - Event data array
-- `$event` (WP_Post) - Event post object
-
-#### `wp_schema_framework_tribe_events_schema_active`
-Control whether The Events Calendar's schema is considered active.
-
-**Parameters:**
-- `$active` (bool) - Whether Tribe Events schema is active
-
-#### `wp_schema_framework_events_manager_data`
-Modify Events Manager event data.
-
-**Parameters:**
-- `$data` (array) - Event data array
-- `$em_event` (EM_Event) - Events Manager event object
-
-#### `wp_schema_framework_mec_data`
-Modify Modern Events Calendar event data.
-
-**Parameters:**
-- `$data` (array) - Event data array
-- `$event` (array) - MEC event array
-
-#### `wp_schema_framework_event_organiser_data`
-Modify Event Organiser event data.
-
-**Parameters:**
-- `$data` (array) - Event data array
-- `$event_id` (int) - Event post ID
-
-### Post Type Mapping Filters
-
-#### `wp_schema_framework_post_type_override`
-Override the schema type for a specific post.
-
-**Parameters:**
-- `$schema_type` (string) - Schema type to use
-- `$post_id` (int) - Post ID
-- `$post_type` (string) - WordPress post type
-- `$post` (WP_Post) - Post object
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $post_type, $post) {
-    if (get_post_meta($post_id, 'is_how_to', true)) {
-        return 'HowTo';
-    }
-    return $type;
-}, 10, 4);
-```
-
-#### `wp_schema_framework_post_type_mapping`
-Map WordPress post types to schema types.
-
-**Parameters:**
-- `$schema_type` (string) - Default schema type
-- `$post_type` (string) - WordPress post type
-
-#### `wp_schema_framework_post_description`
-Provide custom description for posts.
-
-**Parameters:**
-- `$description` (string) - Post description
-- `$post_id` (int) - Post ID
-- `$post` (WP_Post) - Post object
-
-#### `wp_schema_framework_homepage_type`
-Override schema type for the homepage.
-
-**Parameters:**
-- `$type` (string) - Schema type (default: 'WebSite')
-
-#### `wp_schema_framework_homepage_data`
-Modify homepage schema data.
-
-**Parameters:**
-- `$data` (array) - Homepage schema array
-
-### Archive & Search Filters
-
-#### `wp_schema_framework_archive_item_type`
-Override schema type for archive items.
-
-**Parameters:**
-- `$type` (string) - Schema type
-- `$post_type` (string) - WordPress post type
-
-#### `wp_schema_framework_search_item_type`
-Override schema type for search result items.
-
-**Parameters:**
-- `$type` (string) - Schema type
-- `$post_type` (string) - WordPress post type
-
-### Specialized Page Type Filters
-
-#### `wp_schema_framework_faq_items`
-Provide FAQ items for FAQPage schema.
-
-**Parameters:**
-- `$items` (array) - Array of FAQ items
-- `$post_id` (int) - Post ID
-
-**Usage:**
-```php
-add_filter('wp_schema_framework_faq_items', function($items, $post_id) {
-    return [
-        ['question' => 'Q1?', 'answer' => 'A1'],
-        ['question' => 'Q2?', 'answer' => 'A2'],
-    ];
-}, 10, 2);
-```
-
-#### `wp_schema_framework_collection_items`
-Provide items for CollectionPage schema.
-
-**Parameters:**
-- `$items` (array) - Array of collection items
-- `$post_id` (int) - Post ID
-
-#### `wp_schema_framework_gallery_items`
-Provide images for ImageGallery schema.
-
-**Parameters:**
-- `$items` (array) - Array of image URLs
-- `$post_id` (int) - Post ID
-
-#### `wp_schema_framework_gallery_image_count`
-Provide image count for galleries.
-
-**Parameters:**
-- `$count` (int) - Number of images
-- `$post_id` (int) - Post ID
-
-### Type Registry Filters
-
-#### `wp_schema_framework_available_types`
-Modify available schema types for UI.
-
-**Parameters:**
-- `$types` (array) - Array of type definitions
-
-#### `wp_schema_framework_type_registry_types`
-Modify the complete type registry.
-
-**Parameters:**
-- `$types` (array) - All registered schema types
-
-#### `wp_schema_framework_post_type_mappings`
-Modify default post type to schema type mappings.
-
-**Parameters:**
-- `$mappings` (array) - Associative array of post_type => schema_type
-
-### Generic Schema Filters
-
-#### `wp_schema_framework_generic_data`
-Modify generic schema data.
-
-**Parameters:**
-- `$data` (array) - Generic schema array
-- `$post_id` (int) - Post ID (0 if not applicable)
-- `$post` (WP_Post|null) - Post object
-
-#### `wp_schema_framework_{lowercase_type}_data`
-Dynamic filter for any schema type (lowercase).
-
-**Parameters:**
-- `$data` (array) - Schema data array
-- `$post_id` (int) - Post ID
-- `$post` (WP_Post|null) - Post object
-
-**Example types:** `howto_data`, `recipe_data`, `qapage_data`, etc.
-
-## Best Practices
-
-1. **Always return the filtered value** - Don't forget to return the modified data
-2. **Check context** - Use the context parameter to apply filters selectively
-3. **Use proper priority** - Lower numbers run first (default is 10)
-4. **Validate data** - Ensure your modifications follow schema.org specifications
-5. **Test thoroughly** - Use Google's Rich Results Test to validate output
-
-## Common Use Cases
-
-### Adding Custom Properties
-```php
-add_filter('wp_schema_framework_article_data', function($data, $post_id, $post) {
-    // Add custom property
-    $data['customProperty'] = get_post_meta($post_id, 'custom_field', true);
-    return $data;
-}, 10, 3);
-```
-
-### Conditional Schema Output
-```php
-add_filter('wp_schema_framework_output_enabled', function($enabled) {
-    // Disable on certain pages
-    if (is_page(['privacy-policy', 'terms'])) {
-        return false;
-    }
-    return $enabled;
-});
-```
-
-### Override Post Schema Type
-```php
-add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $post_type, $post) {
-    // Use HowTo for posts in 'tutorials' category
-    if (has_category('tutorials', $post_id)) {
-        return 'HowTo';
-    }
-    return $type;
-}, 10, 4);
-```
-
-### Add Organization Contact Info
-```php
-add_filter('wp_schema_framework_organization_data', function($data) {
-    $data['telephone'] = '+1-555-123-4567';
-    $data['email'] = 'info@example.com';
-    $data['contactPoint'] = [
-        '@type' => 'ContactPoint',
-        'telephone' => '+1-555-123-4567',
-        'contactType' => 'customer service'
-    ];
-    return $data;
-});
-```
+which reports any `{"@id": …}` that does not resolve to a node in the same graph.

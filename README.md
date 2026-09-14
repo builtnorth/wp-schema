@@ -1,732 +1,153 @@
-# WP Schema Framework
+# WP Schema
 
-A comprehensive, WordPress schema generation framework with a clean provider-based architecture.
+Generates the JSON-LD `@graph` that WordPress prints in `<head>`, assembled from
+independent *providers* that each contribute one or more nodes.
 
-## Architecture
-
-WP Schema follows a clean, modular architecture:
-
-- **Core Framework**: Provider registration, schema assembly, and output management
-- **Provider System**: Hook-based registration for extensible schema generation
-- **Clean References**: Schema graphs with @id references and automatic deduplication
-- **WordPress Integration**: Deep integration with WordPress core data and features
-- **@graph Format**: Modern JSON-LD output using Google's recommended @graph structure
-
-## Features
-
-- **Simple Provider Interface**: Easy to implement schema providers
-- **Comprehensive Coverage**: Built-in providers for all major WordPress contexts
-- **Registration Priority System**: Predictable schema ordering with priority-based registration
-- **Flexible Filtering**: Multiple filter hooks for customization at every level
-- **Reference Resolution**: Clean @id references for building complex schema graphs
-- **WordPress Core Integration**: Automatic schema for posts, pages, archives, media, and more
-- **Type Registry**: Comprehensive registry of 250+ schema.org types with UI support
+**This package owns graph assembly, not content decisions.** It knows how to
+build a connected graph with resolvable `@id` references and emit it once per
+request. What a given post type *means* — that a location is a `Hotel`, that a
+coupon is an `Offer` — is decided by the plugin that owns that data, which
+registers its own provider or filters an existing node. wp-schema ships sensible
+defaults for core WordPress content and gets out of the way for everything else.
 
 ## Installation
 
 ```bash
-# Via Composer
 composer require builtnorth/wp-schema
 ```
 
-## Quick Start
-
-Initialize the framework in your plugin or theme:
+## Boot
 
 ```php
 use BuiltNorth\WPSchema\Schema;
 
-// Initialize wp-schema
 if (class_exists(Schema::class)) {
 	Schema::boot();
 }
 ```
 
-Once initialized, the framework automatically outputs schema via HTML `<script type="application/ld+json">` tags in the document head.
+`Schema::boot()` defers to `init`. `Schema::initialize()` runs immediately if you
+already control your own timing. Output is attached to `wp_head` at priority 3
+(`Services/OutputService.php:32`).
 
-### For Plugin Developers
-
-Register your schema provider in one line — `Schema::registerProvider()`
-defers itself onto wp-schema's own registration hook internally, so there's
-no hook to wire up by hand and no risk of registering before the framework
-is ready:
+**Boot order matters.** Providers must be registered before the graph is built.
+`Schema::registerProvider()` handles this for you — it registers immediately if
+`wp_schema_framework_register_providers` has already fired, and defers to that
+action if it hasn't (`Schema.php:36-47`), so it is safe at any point. A consumer
+that calls `App::initialize()` directly instead should boot late enough that
+other plugins have registered first.
 
 ```php
 use BuiltNorth\WPSchema\Schema;
 
-if (class_exists(Schema::class)) {
-	Schema::registerProvider('my_plugin_provider', MyPlugin\Schema\MySchemaProvider::class);
-}
+Schema::registerProvider('my_plugin_thing', MyPlugin\Schema\ThingProvider::class);
 ```
 
-### Simple Filter Approach
+`register_provider()` returns `false` rather than throwing if the class is
+missing, does not implement `SchemaProviderInterface`, or if the framework has
+not initialized yet (`App.php:130-154`). A silently absent node usually means one
+of those three.
 
-For basic schema additions:
-
-```php
-add_filter('wp_schema_framework_pieces', function($pieces, $context) {
-    if ($context === 'singular' && get_post_type() === 'event') {
-        $pieces[] = [
-            '@type' => 'Event',
-            'name' => get_the_title(),
-            'startDate' => get_post_meta(get_the_ID(), 'event_date', true)
-        ];
-    }
-    return $pieces;
-}, 10, 2);
-```
-
-### Schema Type Override
-
-Override the schema type for specific posts:
+## Writing a provider
 
 ```php
-add_filter('wp_schema_framework_post_type_override', function($type, $post_id, $post_type, $post) {
-    if (get_post_meta($post_id, 'page_type', true) === 'contact') {
-        return 'ContactPage';
-    }
-    return $type;
-}, 10, 4);
-```
-
-### Product Schema Integration
-
-The ProductProvider automatically detects WooCommerce, Easy Digital Downloads, and BigCommerce products.
-
-**Note**: To avoid conflicts, ProductProvider automatically disables itself when WooCommerce's built-in schema is active. To force wp-schema to handle product schema instead:
-
-```php
-// Disable WooCommerce's built-in structured data
-add_filter('woocommerce_structured_data_disable', '__return_true');
-
-// Or tell wp-schema that WooCommerce schema is not active
-add_filter('wp_schema_framework_woocommerce_schema_active', '__return_false');
-```
-
-You can also integrate custom e-commerce solutions:
-
-```php
-// Mark custom post type as product
-add_filter('wp_schema_framework_is_product', function($is_product, $post_id, $context) {
-    return get_post_type($post_id) === 'my_product_type';
-}, 10, 3);
-
-// Provide product data for custom e-commerce
-add_filter('wp_schema_framework_get_product_data', function($data, $post_id) {
-    if (get_post_type($post_id) !== 'my_product_type') {
-        return $data;
-    }
-
-    return [
-        'name' => get_the_title($post_id),
-        'price' => get_post_meta($post_id, 'price', true),
-        'currency' => 'USD',
-        'availability' => 'https://schema.org/InStock',
-        'sku' => get_post_meta($post_id, 'sku', true),
-        'brand' => get_post_meta($post_id, 'brand', true),
-        'aggregateRating' => [
-            'ratingValue' => get_post_meta($post_id, 'rating', true),
-            'reviewCount' => get_post_meta($post_id, 'review_count', true),
-        ],
-    ];
-}, 10, 2);
-```
-
-### Event Schema Integration
-
-The EventProvider automatically detects The Events Calendar, Events Manager, Modern Events Calendar, and Event Organiser. You can also integrate custom event solutions:
-
-```php
-// Mark custom post type as event
-add_filter('wp_schema_framework_is_event', function($is_event, $post_id, $context) {
-    return get_post_type($post_id) === 'my_event_type';
-}, 10, 3);
-
-// Provide event data for custom events
-add_filter('wp_schema_framework_get_event_data', function($data, $post_id) {
-    if (get_post_type($post_id) !== 'my_event_type') {
-        return $data;
-    }
-
-    return [
-        'name' => get_the_title($post_id),
-        'description' => get_the_excerpt($post_id),
-        'startDate' => get_post_meta($post_id, 'event_start', true), // ISO 8601 format
-        'endDate' => get_post_meta($post_id, 'event_end', true),
-        'eventStatus' => 'https://schema.org/EventScheduled',
-        'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
-        'location' => [
-            'name' => get_post_meta($post_id, 'venue_name', true),
-            'address' => [
-                'streetAddress' => get_post_meta($post_id, 'venue_address', true),
-                'addressLocality' => get_post_meta($post_id, 'venue_city', true),
-                'addressRegion' => get_post_meta($post_id, 'venue_state', true),
-                'postalCode' => get_post_meta($post_id, 'venue_zip', true),
-            ],
-            'type' => 'Place'
-        ],
-        'offers' => [
-            'price' => get_post_meta($post_id, 'ticket_price', true),
-            'currency' => 'USD',
-            'availability' => 'https://schema.org/InStock',
-        ],
-    ];
-}, 10, 2);
-```
-
-## Provider Interface
-
-Create schema providers by implementing `SchemaProviderInterface`:
-
-```php
-<?php
-
 namespace MyPlugin\Schema;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
+use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
-class MySchemaProvider implements SchemaProviderInterface
+class ThingProvider implements SchemaProviderInterface
 {
     public function can_provide(string $context): bool
     {
-        // Return true if this provider can generate schema for the current context
-        return $context === 'singular' && get_post_type() === 'my_post_type';
+        return $context === 'singular' && get_post_type() === 'my_thing';
     }
 
     public function get_pieces(string $context): array
     {
-        // Return array of schema pieces
-        return [
-            [
-                '@type' => 'Thing',
-                '@id' => get_permalink() . '#my-thing',
-                'name' => get_the_title()
-            ]
-        ];
+        $post = get_queried_object();
+
+        $piece = new SchemaPiece(
+            SchemaIds::entity_id($post, '#thing'),
+            'Thing',
+            [],
+            'thing'
+        );
+
+        $piece->set('name', get_the_title($post));
+
+        foreach (SchemaIds::page_links($post) as $property => $reference) {
+            $piece->set($property, $reference);
+        }
+
+        return [$piece];
     }
 
     public function get_priority(): int
     {
-        // Return priority for ordering (lower = higher priority)
         return 20;
     }
 }
 ```
 
-## Built-in Providers
+Providers are sorted by `get_priority()` ascending, so **lower runs first**
+(`Services/ProviderRegistry.php:45`). Core providers use 5 for the site-wide
+nodes, 15–20 for page and entity nodes, and 100 for the generic fallback.
 
-### Core Content Providers
-
-- **OrganizationProvider**: Organization/LocalBusiness schema with support for all organization types
-- **WebsiteProvider**: WebSite schema with site-wide metadata and SearchAction for sitelinks
-- **ArticleProvider**: Article, BlogPosting, and NewsArticle schema for posts
-- **ProductProvider**: Product schema with auto-detection for WooCommerce, Easy Digital Downloads, and BigCommerce
-- **EventProvider**: Event schema with auto-detection for The Events Calendar, Events Manager, Modern Events Calendar, and Event Organiser
-- **AuthorProvider**: Person schema for post authors
-- **NavigationProvider**: SiteNavigationElement schema from WordPress menus
-
-### Page Type Providers
-
-- **PageTypeProvider**: Specialized page types (ContactPage, AboutPage, FAQPage, etc.)
-- **WebPageProvider**: Standard WebPage schema for pages
-- **ArchiveProvider**: CollectionPage and ItemList for category, tag, and date archives
-- **SearchResultsProvider**: SearchResultsPage with search action and results
-- **MediaProvider**: ImageObject, VideoObject, and AudioObject for attachments
-
-### Enhancement Providers
-
-- **CommentProvider**: Comment schema added to posts and pages
-- **LogoProvider**: Organization logo from WordPress site logo/custom logo
-- **SiteIconProvider**: Site icon/favicon added to WebSite schema
-- **GenericSchemaProvider**: Handles custom schema types via post meta and filters
-
-## Schema Output
-
-The package outputs clean schema with proper relationships using the @graph format:
-
-```json
-{
-    "@context": "https://schema.org",
-    "@graph": [
-        {
-            "@type": "Organization",
-            "@id": "https://example.com/#organization",
-            "name": "My Organization",
-            "logo": {
-                "@type": "ImageObject",
-                "url": "https://example.com/logo.png"
-            }
-        },
-        {
-            "@type": "WebSite",
-            "@id": "https://example.com/#website",
-            "name": "My Site",
-            "publisher": { "@id": "https://example.com/#organization" },
-            "image": {
-                "@type": "ImageObject",
-                "url": "https://example.com/icon.png"
-            }
-        },
-        {
-            "@type": "WebPage",
-            "@id": "https://example.com/post/",
-            "url": "https://example.com/post/",
-            "name": "Article Title",
-            "isPartOf": { "@id": "https://example.com/#website" },
-            "breadcrumb": { "@id": "https://example.com/post/#breadcrumb" }
-        },
-        {
-            "@type": "Article",
-            "@id": "https://example.com/post/#article",
-            "headline": "Article Title",
-            "isPartOf": { "@id": "https://example.com/post/" },
-            "mainEntityOfPage": { "@id": "https://example.com/post/" },
-            "author": { "@id": "https://example.com/#author-1" },
-            "publisher": { "@id": "https://example.com/#organization" },
-            "comment": [
-                {
-                    "@type": "Comment",
-                    "author": { "@type": "Person", "name": "Commenter" },
-                    "text": "Great article!"
-                }
-            ]
-        },
-        {
-            "@type": "Person",
-            "@id": "https://example.com/#author-1",
-            "name": "Author Name",
-            "url": "https://example.com/author/authorname/"
-        }
-    ]
-}
-```
-
-### Page and entity nodes
-
-The graph follows the same shape Yoast SEO emits, so it validates the same way
-in Google's Rich Results test and can be consumed by the same tooling:
-
-- Every home and singular request gets a **page node** whose `@id` is the bare
-  permalink (no fragment). Its `@type` is `WebPage` unless the post's schema
-  type is itself a page type (`AboutPage`, `ContactPage`, …), in which case
-  that single node *is* the page.
-- The post's **entity** (`Article`, `Service`, `Hotel`, `VideoObject`, …) is a
-  separate node with `@id` = `{permalink}#{fragment}` and links **up** to the
-  page via both `isPartOf` and `mainEntityOfPage`. The page never references
-  the entity.
-- The **site-wide** nodes (`Organization`, `WebSite`) use absolute `@id`s —
-  `{home_url}#organization`, `{home_url}#website` — because they are referenced
-  from every page. A bare `#organization` would resolve against each page's own
-  URL and never match. Use `SchemaIds::organization_id()` / `website_id()` when
-  referencing them.
-
-`SchemaIds` centralises these conventions so external providers produce the
-same shape:
+If your provider emits the entity for a post type, opt that post type out of the
+generic fallback so the graph does not carry two entities for one post:
 
 ```php
-use BuiltNorth\WPSchema\Services\SchemaIds;
-
-$piece = new SchemaPiece(SchemaIds::entity_id($post, '#localbusiness'), 'Hotel', [], 'localbusiness');
-
-foreach (SchemaIds::page_links($post) as $property => $reference) {
-    $piece->set($property, $reference);
-}
-```
-
-If your provider emits the entity for a post type, opt that post type out of
-the generic fallback with `wp_schema_framework_generic_skip_post_types` so the
-graph does not carry two entities for one post.
-
-## WP-CLI
-
-Verify output locally without an HTTP request — and without a page cache
-getting in the way. The command emulates a front-end request for the path
-through WordPress's own rewrite resolution, builds the graph in-process, and
-inspects it.
-
-```bash
-wp schema check                          # home page
-wp schema check /locations/acme-store/   # any path, e.g. /?s=term
-wp schema check --post=5151              # by post ID
-wp schema check --all                    # home, blog page, newest post of every
-                                         # public post type, every CPT archive
-wp schema check --all --format=json      # machine-readable; exit 1 on failure
-wp schema dump /                         # the exact JSON-LD wp_head would print
-```
-
-`check` reports every node, confirms the page node is present with the
-expected `@id`, and fails on any `{"@id": …}` reference — however deeply
-nested — that does not resolve to a node in the same graph. Use `dump` to
-paste into the Rich Results Test or Schema.org validator when the site is
-not publicly reachable.
-
-The path is a positional argument because `--url` and `--path` are WP-CLI
-globals and never reach the command.
-
-## Contexts
-
-The system recognizes these contexts for schema generation:
-
-- `home` - Front page
-- `singular` - Individual posts/pages
-- `archive` - Archive pages (categories, tags, dates, authors, custom taxonomies)
-- `search` - Search results pages
-- `404` - 404 error pages
-- `attachment` - Media/attachment pages
-
-## Available Hooks
-
-### Hooks & Filters
-
-The framework provides extensive hooks and filters for customization. Here are the most commonly used:
-
-#### Actions
-
-- `wp_schema_framework_register_providers` - Register custom providers
-- `wp_schema_framework_ready` - Framework initialization complete
-- `wp_schema_framework_before_output` - Before schema is output to page
-- `wp_schema_framework_after_output` - After schema has been output
-
-#### Core Filters
-
-- `wp_schema_framework_output_enabled` - Enable/disable schema output globally
-- `wp_schema_framework_context` - Override detected page context
-- `wp_schema_framework_pieces` - Modify final schema pieces array
-- `wp_schema_framework_graph` - Modify complete schema graph before output
-- `wp_schema_framework_json_output` - Modify final JSON-LD string before output
-- `wp_schema_framework_piece_{type}` - Modify specific schema piece (e.g., `article`, `product`)
-- `wp_schema_framework_piece_id_{name}` - Modify schema piece by name (e.g., `organization`)
-
-`{name}` is the piece's short handle, not its `@id`. `@id`s are absolute IRIs,
-so building a hook name from one would embed the site URL and differ per site.
-The handle is derived by stripping the home URL and slugifying, so both
-`https://example.com/#organization` and `#organization` resolve to
-`organization` — see [SchemaPiece](#schemapiece-class) to set one explicitly.
-
-#### Provider Data Filters
-
-- `wp_schema_framework_organization_data` - Modify organization schema
-- `wp_schema_framework_organization_type` - Override organization type
-- `wp_schema_framework_website_data` - Modify website schema
-- `wp_schema_framework_website_can_provide` - Control website schema output
-- `wp_schema_framework_article_data` - Modify article schema
-- `wp_schema_framework_webpage_data` - Modify webpage schema
-- `wp_schema_framework_author_data` - Modify author/person schema
-- `wp_schema_framework_product_data` - Modify product schema
-- `wp_schema_framework_event_data` - Modify event schema
-- `wp_schema_framework_archive_data` - Modify archive schema
-- `wp_schema_framework_search_results_data` - Modify search results schema
-- `wp_schema_framework_media_data` - Modify media schema
-- `wp_schema_framework_page_type_data` - Modify specialized page type schema
-
-#### Post Type Filters
-
-- `wp_schema_framework_post_type_override` - Override schema type for specific posts
-- `wp_schema_framework_post_type_mapping` - Map post types to schema types
-- `wp_schema_framework_generic_skip_post_types` - Post types whose entity node another provider emits (skips the generic fallback)
-- `wp_schema_framework_post_description` - Provide custom post descriptions
-- `wp_schema_framework_homepage_type` - Override homepage schema type
-- `wp_schema_framework_homepage_data` - Modify homepage schema data
-
-#### Detection Filters
-
-- `wp_schema_framework_is_product` - Custom product detection
-- `wp_schema_framework_is_event` - Custom event detection
-- `wp_schema_framework_get_product_data` - Provide custom product data
-- `wp_schema_framework_get_event_data` - Provide custom event data
-
-#### Plugin Conflict Filters
-
-- `wp_schema_framework_woocommerce_schema_active` - Override WooCommerce conflict detection
-- `wp_schema_framework_tribe_events_schema_active` - Override The Events Calendar conflict detection
-
-#### Specialized Filters
-
-- `wp_schema_framework_faq_items` - Provide FAQ items for FAQPage
-- `wp_schema_framework_collection_items` - Provide collection items
-- `wp_schema_framework_gallery_items` - Provide gallery images
-- `wp_schema_framework_available_types` - Modify available schema types for UI
-
-📚 **[View Complete Hooks Reference](docs/hooks-reference.md)** - Comprehensive documentation with examples and use cases
-
-### Schema Type Registry
-
-Access available schema types for UI elements like dropdowns in admin settings:
-
-```php
-// Get available schema types
-$types = apply_filters('wp_schema_framework_available_types', []);
-// Returns array with label, value, category, subcategory, and parent fields
-
-// Example: Creating a schema type dropdown in admin
-echo '<select name="schema_type">';
-foreach ($types as $type) {
-    echo sprintf(
-        '<option value="%s">%s</option>',
-        esc_attr($type['value']),
-        esc_html($type['label'])
-    );
-}
-echo '</select>';
-```
-
-#### Categorized Schema Types
-
-The registry now includes category metadata for better organization:
-
-```php
-// Get types organized by category
-$categorized = BuiltNorth\WPSchema\Schema::getCategorizedTypes();
-
-// Returns structure like:
-// [
-//     'Organization' => [
-//         'LocalBusiness' => [...types],
-//         'FoodEstablishment' => [...types],
-//         'Store' => [...types]
-//     ],
-//     'CreativeWork' => [
-//         'Article' => [...types],
-//         'WebPage' => [...types]
-//     ]
-// ]
-```
-
-#### Specialized Type Getters
-
-Get filtered sets of types for specific use cases:
-
-```php
-use BuiltNorth\WPSchema\Schema;
-
-// Get only organization/business types (for organization settings)
-$org_types = Schema::getOrganizationTypes();
-
-// Get organization types categorized for dropdowns
-$categorized_org = Schema::getCategorizedOrganizationTypes();
-// Returns user-friendly categories like:
-// - General Business
-// - Food & Dining
-// - Retail Stores
-// - Home & Construction
-// - Medical Services
-// etc.
-
-// Get content-focused types (for posts/pages)
-$content_types = Schema::getContentTypes();
-// Returns Article, BlogPosting, HowTo, Product, Event, etc.
-```
-
-The registry provides 250+ comprehensive schema types including:
-
-- **Content Types**: Article, BlogPosting, NewsArticle, HowTo, QAPage, TechArticle, Report
-- **Business & Services**: LocalBusiness subtypes, home services (Plumber, Electrician, etc.), professional services (Attorney, Dentist, etc.)
-- **Commerce**: Product, Service, Store types, automotive services
-- **Places & Venues**: Restaurant, Hotel, Museum, Zoo, Park, recreational facilities
-- **Events**: 20+ event subtypes including BusinessEvent, MusicEvent, SportsEvent
-- **Media & Creative Works**: Various media types, artwork, publications
-- **Digital Products**: SoftwareApplication, MobileApplication, WebApplication
-- **Geographic**: Country, City, Mountain, Beach, tourist destinations
-
-All types can be extended/consolidated via the `wp_schema_framework_type_registry_types` filter.
-
-#### Extending the Type Registry
-
-Add custom schema types to the registry:
-
-```php
-// Add custom schema types with categories
-add_filter('wp_schema_framework_type_registry_types', function($types) {
-    // Add custom types with category metadata
-    $types[] = [
-        'label' => 'Podcast',
-        'value' => 'PodcastSeries',
-        'category' => 'CreativeWork',
-        'subcategory' => 'PodcastSeries'
-    ];
-    $types[] = [
-        'label' => 'Coworking Space',
-        'value' => 'CoworkingSpace',
-        'category' => 'Organization',
-        'subcategory' => 'LocalBusiness',
-        'parent' => 'LocalBusiness'
-    ];
-    $types[] = [
-        'label' => 'Webinar',
-        'value' => 'Webinar',
-        'category' => 'Event',
-        'subcategory' => 'Event'
-    ];
-
-    return $types;
+add_filter('wp_schema_framework_generic_skip_post_types', function (array $post_types): array {
+    $post_types[] = 'my_thing';
+    return $post_types;
 });
 ```
 
-Replace with a custom curated list:
+This is keyed by *post type* rather than schema type deliberately — the fallback
+cannot know by type, since one post type may resolve to `Hotel`, `Store`, or
+`GasStation` depending on per-post settings.
 
-```php
-// Replace entire registry with your own curated list
-add_filter('wp_schema_framework_type_registry_types', function($types) {
-    // Ignore default types and define only what you need
-    return [
-        ['label' => 'Article', 'value' => 'Article'],
-        ['label' => 'Product', 'value' => 'Product'],
-        ['label' => 'LocalBusiness', 'value' => 'LocalBusiness'],
-        ['label' => 'Event', 'value' => 'Event'],
-        ['label' => 'Person', 'value' => 'Person'],
-        ['label' => 'Organization', 'value' => 'Organization'],
-    ];
-});
-```
+## Graph shape
 
-Remove or modify existing types:
+Every home and singular request gets a **page node** whose `@id` is the bare
+permalink, no fragment. It is typed `WebPage` regardless of what the post's
+schema type resolves to — the resolved type belongs to the *entity* node
+(`Providers/WebPageProvider.php:11-26`).
 
-```php
-// Remove specific schema types from existing list
-add_filter('wp_schema_framework_type_registry_types', function($types) {
-    // Remove all Action types (not typically used as main entity)
-    $types = array_filter($types, function($type) {
-        return !str_contains($type['value'], 'Action');
-    });
+The **entity** node uses `@id` = `{permalink}#{fragment}` and links *up* to the
+page via both `isPartOf` and `mainEntityOfPage`. The page never references the
+entity.
 
-    // Remove specific types
-    $remove_types = ['Cemetery', 'Canal', 'Mountain'];
-    $types = array_filter($types, function($type) use ($remove_types) {
-        return !in_array($type['value'], $remove_types);
-    });
+When the resolved type is a `WebPage` **subtype** (`ContactPage`, `AboutPage`,
+`PrivacyPolicyPage`, `TermsOfServicePage`, `CheckoutPage`, `ProfilePage`,
+`FAQPage`, `CollectionPage`, `MediaGallery`), the page node becomes multi-typed
+rather than gaining a sibling: `"@type": ["WebPage","ContactPage"]`. A page that
+is also a contact page is one thing with two types, not two things.
+`WebPageProvider` always owns the node and appends the subtype;
+`PageTypeProvider` contributes the subtype-specific properties to it through
+`wp_schema_framework_piece_id_webpage` and emits nothing of its own.
 
-    return $types;
-});
-```
+**Site-wide nodes use absolute `@id`s** — `{home_url}/#organization` and
+`{home_url}/#website`. This is deliberate and not redundancy: a bare
+`#organization` would resolve against each page's own URL and never match the
+node it points at. Always use `SchemaIds::organization_id()` and
+`SchemaIds::website_id()` when referencing them rather than writing the fragment
+by hand.
 
-Organize types for better UX using built-in categories:
+`SchemaIds` (`Services/SchemaIds.php`) centralizes these conventions:
+`organization_id()`, `website_id()`, `webpage_id($post)`,
+`home_webpage_id()`, `entity_id($post, $fragment)`, and `page_links($post)`.
 
-```php
-// Create optgroups using the built-in category metadata
-$categorized = BuiltNorth\WPSchema\Schema::getCategorizedOrganizationTypes();
+### One piece per `@id`
 
-echo '<select name="organization_type">';
-foreach ($categorized as $category => $types) {
-    echo '<optgroup label="' . esc_attr($category) . '">';
-    foreach ($types as $type) {
-        echo sprintf(
-            '<option value="%s">%s</option>',
-            esc_attr($type['value']),
-            esc_html($type['label'])
-        );
-    }
-    echo '</optgroup>';
-}
-echo '</select>';
-```
+`SchemaGraph::add_piece()` keys pieces by `@id`, so a second piece claiming an
+existing `@id` **replaces** the first and triggers `_doing_it_wrong`
+(`Graph/SchemaGraph.php:36-48`). Merging is deliberately not attempted — it would
+require per-property rules (scalar vs. list) the graph has no way to infer.
 
-## Requirements
-
-- PHP 8.1+
-- WordPress 6.0+
-
-## API Reference
-
-### Schema Facade
-
-`BuiltNorth\WPSchema\Schema` is the recommended entry point for
-everything above — initialization, provider registration, and every type
-registry getter. Prefer it over calling `App` directly; it's the stable,
-documented surface this package commits to.
-
-### App Class (advanced / internal)
-
-`App` is the real class the facade delegates to. Reach for it directly only
-if you need something the facade doesn't expose yet (e.g. the raw graph
-builder or a direct `is_initialized()` check) — most integrations never need
-this:
-
-```php
-// Get the singleton instance
-$app = BuiltNorth\WPSchema\App::instance();
-
-// Check if initialized
-if ($app->is_initialized()) {
-    // Access services
-    $registry = $app->get_registry();
-    $graph_builder = $app->get_graph_builder();
-    $type_registry = $app->get_type_registry();
-}
-```
-
-### SchemaGraph Class
-
-Manages the schema graph with piece management:
-
-```php
-use BuiltNorth\WPSchema\Graph\SchemaGraph;
-use BuiltNorth\WPSchema\Graph\SchemaPiece;
-
-$graph = new SchemaGraph();
-
-// Add pieces
-$piece = new SchemaPiece('my-id', 'Article', ['headline' => 'Title']);
-$graph->add_piece($piece);
-
-// Query pieces
-$article = $graph->get_piece('my-id');
-$all_articles = $graph->get_pieces_by_type('Article');
-
-// Convert to output
-$array = $graph->to_array();
-$json = $graph->to_json();
-```
-
-### SchemaPiece Class
-
-Represents individual schema pieces:
-
-```php
-use BuiltNorth\WPSchema\Graph\SchemaPiece;
-
-// Create a piece
-$piece = new SchemaPiece('article-1', 'Article');
-
-// Set properties
-$piece->set('headline', 'My Article')
-      ->set('datePublished', '2024-01-01')
-      ->add_reference('author', 'person-1');
-
-// Access properties
-$headline = $piece->get('headline');
-$has_author = $piece->has('author');
-
-// Convert to array
-$data = $piece->to_array();
-```
-
-#### Piece names
-
-Each piece has a short handle alongside its `@id`, used to build the
-`wp_schema_framework_piece_id_{name}` hook. It is derived from the `@id` by
-stripping the home URL and slugifying:
-
-```php
-// Both resolve to the handle "organization", so the same hook works on any site
-new SchemaPiece('https://example.com/#organization', 'Organization');
-new SchemaPiece('#organization', 'Organization');
-
-$piece->get_name(); // "organization"
-```
-
-Pass one explicitly when the derived handle would be unstable — for example an
-`@id` containing a post ID:
-
-```php
-// Handle stays "review-summary" instead of becoming "review-4812"
-new SchemaPiece("https://example.com/#review-{$post->ID}", 'Review', [], 'review-summary');
-```
-
-#### One piece per `@id`
-
-`SchemaGraph::add_piece()` keys pieces by `@id`, so a second piece claiming the
-same `@id` replaces the first and triggers `_doing_it_wrong`. To add properties
-to a node another provider owns, filter it rather than emitting a second piece:
+To contribute properties to a node another provider owns, filter it:
 
 ```php
 add_filter('wp_schema_framework_piece_id_organization', function ($piece, $context) {
@@ -734,17 +155,153 @@ add_filter('wp_schema_framework_piece_id_organization', function ($piece, $conte
 }, 10, 2);
 ```
 
+### Piece names
+
+Each piece carries a short handle alongside its `@id`, used to build the
+`wp_schema_framework_piece_id_{name}` hook. It is derived by stripping the home
+URL and slugifying, so both `https://example.com/#organization` and
+`#organization` yield the handle `organization` — and the hook name is identical
+on every site (`Graph/SchemaPiece.php:72-84`).
+
+Pass a handle explicitly when the derived one would be unstable, such as an `@id`
+containing a post ID:
+
+```php
+// Handle stays "review-summary" instead of becoming "review-4812"
+new SchemaPiece("https://example.com/#review-{$post->ID}", 'Review', [], 'review-summary');
+```
+
+## Contexts
+
+`ContextDetector` resolves exactly one context per request, in this order
+(`Services/ContextDetector.php:19-38`): `home`, `attachment`, `singular`,
+`archive`, `search`, `404`, `unknown`.
+
+Two ordering consequences worth knowing: the front page matches `home` before
+`singular`, so a static front page is never `singular`; and `is_archive() ||
+is_home()` is tested before `is_search()`, so the blog posts index reports
+`archive`.
+
+**No schema is emitted for `404` or `unknown`**, nor in admin, feeds, robots, or
+trackback requests (`Services/ContextDetector.php:43-57`). `search` does emit.
+
+## Extending
+
+The graph can be modified at four levels, applied in this order
+(`Graph/SchemaGraph.php:118-144`, then `Services/OutputService.php:83-101`):
+
+1. `wp_schema_framework_pieces` — the whole piece collection
+2. `wp_schema_framework_piece_{type}` — one node by lowercased `@type`
+3. `wp_schema_framework_piece_id_{name}` — one node by its handle
+4. `wp_schema_framework_graph` / `wp_schema_framework_json_output` — the final
+   array and the encoded string
+
+> **`wp_schema_framework_pieces` passes `SchemaPiece` objects, keyed by `@id` —
+> not plain arrays.** The filtered result is iterated and `get_type()` is called
+> on each element, so injecting a raw array causes a fatal error. Append with
+> `$pieces[$piece->get_id()] = $piece;` and return the array.
+
+See **[docs/hooks-reference.md](docs/hooks-reference.md)** for every hook with
+verified parameters, and **[docs/conflict-detection.md](docs/conflict-detection.md)**
+for how the product and event providers stand down when WooCommerce or The
+Events Calendar already
+emits that schema.
+
+## Schema type registry
+
+`SchemaTypeRegistry` backs schema-type dropdowns in admin UIs. It ships 260
+type entries; each has `label` and `value`, and most (but not all) also carry
+`category`, `subcategory`, and sometimes `parent`
+(`Services/SchemaTypeRegistry.php:19-350`). Code reading those keys must treat
+them as optional.
+
+```php
+use BuiltNorth\WPSchema\Schema;
+
+Schema::getAvailableTypes();               // all 260 entries
+Schema::getCategorizedTypes();             // grouped by category → subcategory
+Schema::getOrganizationTypes();            // business/place/identity types only
+Schema::getCategorizedOrganizationTypes(); // grouped under display names
+Schema::getContentTypes();                 // post/page-appropriate types
+Schema::getPostTypeMappings();             // post type → schema type
+Schema::getSchemaTypeForPostType('post');  // 'Article'; falls back to 'Article'
+Schema::isValidType('Hotel');              // membership check against the registry
+```
+
+Note that `getSchemaTypeForPostType()` returns `'Article'` for *any* unmapped
+post type (`Services/SchemaTypeRegistry.php:392`) — it is not a "no mapping"
+signal. The `wp_schema_framework_post_type_mapping` filter used by providers
+defaults to an empty string instead, which is the real "unmapped" value.
+
+Customize the registry with `wp_schema_framework_type_registry_types`:
+
+```php
+add_filter('wp_schema_framework_type_registry_types', function (array $types): array {
+    $types[] = [
+        'label'       => 'Coworking Space',
+        'value'       => 'CoworkingSpace',
+        'category'    => 'Organization',
+        'subcategory' => 'LocalBusiness',
+        'parent'      => 'LocalBusiness',
+    ];
+
+    return $types;
+});
+```
+
+Returning a completely different array replaces the registry outright.
+
+## WP-CLI
+
+Inspect the graph without an HTTP request, and without a page cache in the way.
+The command emulates a front-end request through WordPress's own rewrite
+resolution and builds the graph in-process, so `dump` output and the live page
+cannot disagree.
+
+```bash
+wp schema check                          # home page
+wp schema check /locations/acme-store/   # any path, e.g. /?s=term
+wp schema check --post=5151              # by post ID
+wp schema check --all                    # home, blog page, newest post of every
+                                         # public post type, every CPT archive
+wp schema check --all --format=json      # machine-readable
+wp schema dump /                         # the exact JSON-LD wp_head would print
+```
+
+`check` reports every node and fails on any `{"@id": …}` reference — however
+deeply nested — that does not resolve to a node in the same graph. It exits `1`
+when any checked page has errors. `--all` skips the `attachment` post type
+(`CLI/SchemaCommand.php:25`).
+
+The path is a **positional** argument because `--url` and `--path` are WP-CLI
+globals and never reach the command.
+
+## API surface
+
+`BuiltNorth\WPSchema\Schema` is the supported entry point — boot, provider
+registration, and every type-registry getter. `App` is the underlying singleton;
+reach for it only for what the facade does not expose (`get_registry()`,
+`get_graph_builder()`, `get_output_service()`, `get_context_detector()`,
+`get_type_registry()`, `is_initialized()`).
+
+`SchemaGraph` and `SchemaPiece` (`inc/Graph/`) are the graph primitives.
+`SchemaPiece` exposes `set()`, `get()`, `has()`, `remove()`, `merge()`,
+`from_array()`, `to_array()`, `add_reference()`, `get_id()`, `get_type()`, and
+`get_name()`; the mutators return `$this` and chain.
+
+## Requirements
+
+PHP 8.0 or later, per `composer.json`. The package declares no WordPress version
+constraint, though it calls `str_contains`/`str_starts_with` and expects a
+reasonably current WordPress.
+
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to this project.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-This package is licensed under the GPL version 2 or later. See [LICENSE.md](LICENSE.md) for details.
-
-## Support
-
-For support and questions, please open an issue on GitHub.
+GPL-2.0-or-later. See [LICENSE.md](LICENSE.md).
 
 ## Disclaimer
 

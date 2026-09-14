@@ -68,7 +68,7 @@ class ServiceProvider implements SchemaProviderInterface
 			}
 		}
 
-		$org_id = $this->organization_id();
+		$org_id = SchemaIds::organization_id();
 		if ($org_id !== '') {
 			$service->set('provider', [ '@id' => $org_id ]);
 		}
@@ -97,10 +97,4 @@ class ServiceProvider implements SchemaProviderInterface
 		);
 	}
 
-	private function organization_id(): string
-	{
-		$default = SchemaIds::organization_id();
-
-		return (string) apply_filters('wp_schema_framework_organization_id', $default);
-	}
 }

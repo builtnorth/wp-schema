@@ -1,108 +1,166 @@
-# Conflict Detection in WP Schema Framework
+# Conflict detection
 
-## Overview
+When another plugin already emits `Product` or `Event` JSON-LD, two nodes for the
+same thing end up on the page and search engines see duplicate structured data.
+wp-schema's product and event providers can detect that case and stand down.
 
-The WP Schema Framework includes intelligent conflict detection to prevent duplicate schema markup when popular plugins are already outputting their own structured data.
+**Coverage is narrower than it looks.** Only two integrations actually stand
+down. Every other supported commerce and event integration is a *data source*
+only — wp-schema reads its data and emits its own node, with no duplicate check.
 
-## Supported Plugins
+| Integration | Detected as a data source | Stands down on conflict |
+|---|---|---|
+| WooCommerce | yes | **yes** |
+| The Events Calendar | yes | **yes** |
+| Easy Digital Downloads | yes | no |
+| BigCommerce | yes | no |
+| Events Manager | yes | no |
+| Modern Events Calendar | yes | no |
+| Event Organiser | yes | no |
+| All in One Event Calendar | detection only | no |
+| GatherPress | yes | no |
 
-### E-commerce
-- **WooCommerce**: Automatically detects when WooCommerce is outputting Product schema and disables our Product provider to prevent duplicates.
+For the integrations in the "no" column, wp-schema emits its node regardless. If
+that plugin also emits its own schema, the page carries both. Suppress one side
+with `wp_schema_framework_is_product` / `wp_schema_framework_is_event` returning
+`false`, or with that plugin's own setting.
 
-### Events
-- **The Events Calendar**: Automatically detects when The Events Calendar is outputting Event schema and disables our Event provider to prevent duplicates.
+## How the two guarded paths decide
 
-## How It Works
+### Product
 
-1. **Automatic Detection**: When a supported plugin is active and outputting schema, our providers automatically disable themselves.
-2. **No Configuration Needed**: Works out of the box with zero configuration.
-3. **Developer Override**: Can be overridden via filters if you want to use our schema instead.
+`Providers/ProductProvider.php:336-351`, reached only for the `product` post type
+when WooCommerce's class is loaded (`:28-35`):
 
-## Developer Filters
+1. If `woocommerce_structured_data_disable` filters to true, WooCommerce is not
+   emitting — wp-schema **provides**.
+2. If its `WC_Structured_Data` class does not exist, wp-schema **provides**.
+3. Otherwise it is assumed active, and the result of
+   `wp_schema_framework_woocommerce_schema_active` (default `true`) decides.
+   True means wp-schema **stands down**.
 
-### Force WP Schema to Output Product Schema
+### Event
+
+`Providers/EventProvider.php:677-695`, reached only for the `tribe_events` post
+type when that plugin's main class is loaded (`:28-34`):
+
+1. If the plugin's own `disable_jsonld` option is set, wp-schema **provides**.
+2. If its JSON-LD class does not exist, wp-schema **provides**.
+3. Otherwise `wp_schema_framework_tribe_events_schema_active` (default `true`)
+   decides. True means wp-schema **stands down**.
+
+Note both guards check a *class* rather than a version or a setting, so a plugin
+that loads the class but has schema disabled through some other mechanism is
+still treated as active. The filters exist for exactly that case.
+
+## Forcing wp-schema to own the output
 
 ```php
-// Force our Product schema even when WooCommerce is active
+// Product: emit ours even when WooCommerce is active.
 add_filter('wp_schema_framework_woocommerce_schema_active', '__return_false');
-```
 
-### Force WP Schema to Output Event Schema
-
-```php
-// Force our Event schema even when The Events Calendar is active
+// Event: same, for the calendar plugin.
 add_filter('wp_schema_framework_tribe_events_schema_active', '__return_false');
 ```
 
-### Custom Product Detection
+Disabling the integrating plugin's output at its source is usually the better fix,
+since these filters only stop wp-schema from yielding — they cannot stop the
+other plugin from printing its own markup:
 
 ```php
-// Force a post to be treated as a product
-add_filter('wp_schema_framework_is_product', function($is_product, $post_id, $context) {
-    if (get_post_type($post_id) === 'my_custom_product') {
-        return true;
-    }
-    return $is_product;
+add_filter('woocommerce_structured_data_disable', '__return_true');
+```
+
+## Custom post types
+
+Detection filters let an unrecognized post type be treated as a product or event.
+Both default to `false` and are the last check in `can_provide()`, so they cannot
+override a stand-down decision made earlier.
+
+```php
+add_filter('wp_schema_framework_is_product', function ($is_product, $post_id, $context) {
+    return get_post_type($post_id) === 'my_product_type' ? true : $is_product;
+}, 10, 3);
+
+add_filter('wp_schema_framework_is_event', function ($is_event, $post_id, $context) {
+    return get_post_type($post_id) === 'my_event_type' ? true : $is_event;
 }, 10, 3);
 ```
 
-### Custom Event Detection
+Supply the data with `wp_schema_framework_get_product_data` or
+`wp_schema_framework_get_event_data`. Returning an array from either short-circuits
+every built-in data path (`ProductProvider.php:154-157`,
+`EventProvider.php:168-171`):
 
 ```php
-// Force a post to be treated as an event
-add_filter('wp_schema_framework_is_event', function($is_event, $post_id, $context) {
-    if (get_post_type($post_id) === 'my_custom_event') {
-        return true;
+add_filter('wp_schema_framework_get_event_data', function ($data, $post_id) {
+    if (get_post_type($post_id) !== 'my_event_type') {
+        return $data;
     }
-    return $is_event;
-}, 10, 3);
+
+    return [
+        'name'      => get_the_title($post_id),
+        'startDate' => get_post_meta($post_id, 'event_start', true), // ISO 8601
+        'endDate'   => get_post_meta($post_id, 'event_end', true),
+        'location'  => [
+            'name'    => get_post_meta($post_id, 'venue_name', true),
+            'type'    => 'Place',
+            'address' => [
+                'streetAddress'   => get_post_meta($post_id, 'venue_address', true),
+                'addressLocality' => get_post_meta($post_id, 'venue_city', true),
+            ],
+        ],
+    ];
+}, 10, 2);
 ```
 
-## Testing Conflict Detection
+Recognized `location` shapes are `Place` (the default) and `VirtualLocation`,
+which uses `url` instead of an address (`EventProvider.php:520-563`).
 
-To verify conflict detection is working:
+## Graph shape of these two nodes
 
-1. Install WooCommerce or The Events Calendar
-2. View a product or event page source
-3. Search for JSON-LD script tags
-4. Verify only one Product/Event schema appears
+Both nodes follow the `SchemaIds` conventions described in the README: the `@id`
+is permalink-scoped (`{permalink}#product`, `{permalink}#event`) and each node
+links up to its page via `isPartOf` and `mainEntityOfPage`. If the current post
+has no resolvable permalink, neither provider emits anything — a page-scoped
+entity with no page node would only produce a dangling reference.
 
-## Adding Conflict Detection for Other Plugins
+## Verifying
 
-If you're developing a provider that might conflict with existing plugins:
+```bash
+wp schema check --post=<id>
+```
+
+This builds the graph in-process and lists every node, so a duplicated `Product`
+or `Event` shows up directly. To see what the other plugin adds on top, compare
+against the rendered page — `wp schema check` only sees wp-schema's own output.
+
+## Writing a provider that yields
+
+The pattern both built-in guards follow: check whether the other source is
+emitting, allow an override filter, and return `false` from `can_provide()` so no
+piece is created.
 
 ```php
-private function is_plugin_schema_enabled(): bool
+private function other_source_is_active(): bool
 {
-    // Check if plugin is disabling its schema via filter
-    if (apply_filters('plugin_disable_schema', false)) {
+    if (!class_exists('Some_Plugin_Schema_Class')) {
         return false;
     }
-    
-    // Check if plugin's schema class exists and is active
-    if (class_exists('Plugin_Schema_Class')) {
-        // Allow override via our filter
-        return apply_filters('wp_schema_framework_plugin_schema_active', true);
-    }
-    
-    return false;
+
+    return apply_filters('my_plugin_other_schema_active', true);
 }
 
 public function can_provide(string $context): bool
 {
-    // ... other checks ...
-    
-    if ($this->is_plugin_schema_enabled()) {
-        return false; // Let the plugin handle it
+    if ($context !== 'singular') {
+        return false;
     }
-    
-    // ... continue with provision
+
+    return !$this->other_source_is_active();
 }
 ```
 
-## Benefits
-
-1. **No Duplicate Schema**: Prevents Google Search Console errors about duplicate structured data
-2. **Better SEO**: Clean, single source of truth for search engines
-3. **Plugin Compatibility**: Works seamlessly with popular WordPress plugins
-4. **Developer Friendly**: Easy to override when custom behavior is needed
+Yielding in `can_provide()` is preferable to emitting a piece and removing it
+later — the graph never sees a node that has to be cleaned up, and no `@id`
+collision or `_doing_it_wrong` notice can occur.

@@ -74,7 +74,7 @@ class PersonProvider implements SchemaProviderInterface
 			}
 		}
 
-		$org_id = $this->organization_id();
+		$org_id = SchemaIds::organization_id();
 		if ($org_id !== '') {
 			$person->set('worksFor', [ '@id' => $org_id ]);
 		}
@@ -103,10 +103,4 @@ class PersonProvider implements SchemaProviderInterface
 		);
 	}
 
-	private function organization_id(): string
-	{
-		$default = SchemaIds::organization_id();
-
-		return (string) apply_filters('wp_schema_framework_organization_id', $default);
-	}
 }
