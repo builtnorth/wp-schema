@@ -47,3 +47,7 @@ Session.vim
 Thumbs.db
 Desktop.ini
 /debug.log
+
+# Test / coverage artifacts
+coverage
+.phpunit.result.cache
