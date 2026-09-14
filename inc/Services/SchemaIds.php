@@ -73,6 +73,61 @@ final class SchemaIds
     }
 
     /**
+     * The @id of the page currently being requested, in any context.
+     *
+     * Unlike webpage_id(), which needs a post, this resolves from the current
+     * query — so archive, search and attachment requests get a real page URL
+     * rather than a bare fragment. Mirrors ContextDetector's ordering:
+     * front page first (a static front page also satisfies is_singular()),
+     * then attachment, then singular, with the request URL as the fallback.
+     */
+    public static function current_page_id(): string
+    {
+        if (function_exists('is_front_page') && is_front_page()) {
+            return self::home_webpage_id();
+        }
+
+        if (function_exists('is_singular') && is_singular()) {
+            $permalink = get_permalink();
+
+            if ($permalink) {
+                return (string) $permalink;
+            }
+        }
+
+        global $wp;
+
+        if (isset($wp->request)) {
+            $search = (function_exists('is_search') && is_search()) ? get_search_query() : '';
+
+            return $search !== ''
+                ? (string) home_url(add_query_arg([ 's' => $search ], $wp->request))
+                : (string) home_url(add_query_arg([], $wp->request));
+        }
+
+        return self::home_webpage_id();
+    }
+
+    /**
+     * The BreadcrumbList @id for the current page.
+     *
+     * Page-scoped for the same reason entity ids are: a bare "#breadcrumb"
+     * resolves against whatever URL the consumer reads the graph from, so the
+     * emitting package and the referencing page node can silently disagree.
+     * Both sides call this, so the string agrees by construction.
+     */
+    public static function breadcrumb_id(): string
+    {
+        $page = self::current_page_id();
+
+        if ($page === '') {
+            return self::BREADCRUMB_FRAGMENT;
+        }
+
+        return trailingslashit($page) . '#' . ltrim(self::BREADCRUMB_FRAGMENT, '#');
+    }
+
+    /**
      * The two properties an entity node uses to point at the page it lives on.
      *
      * @return array<string, array{"@id": string}>

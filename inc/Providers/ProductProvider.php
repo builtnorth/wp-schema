@@ -56,9 +56,26 @@ class ProductProvider implements SchemaProviderInterface
             return [];
         }
         
+        // Page-scoped @id, and link the entity up to its WebPage node — the
+        // same shape ArticleProvider uses. A bare "#product" fragment would
+        // resolve against whatever URL the consumer reads the graph from.
+        $post = get_post();
+        if (!$post) {
+            return [];
+        }
+
+        $product_id = SchemaIds::entity_id((int) $post->ID, '#product');
+        if ($product_id === '') {
+            return [];
+        }
+
         // Create product schema piece
-        $product = new SchemaPiece('#product', 'Product');
-        
+        $product = new SchemaPiece($product_id, 'Product');
+
+        foreach (SchemaIds::page_links((int) $post->ID) as $property => $reference) {
+            $product->set($property, $reference);
+        }
+
         // Set basic product data
         $product->set('name', $product_data['name'] ?? get_the_title());
         

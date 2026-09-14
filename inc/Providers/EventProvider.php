@@ -70,9 +70,26 @@ class EventProvider implements SchemaProviderInterface
             return [];
         }
         
+        // Page-scoped @id, and link the entity up to its WebPage node — the
+        // same shape ArticleProvider uses. A bare "#event" fragment would
+        // resolve against whatever URL the consumer reads the graph from.
+        $post = get_post();
+        if (!$post) {
+            return [];
+        }
+
+        $event_id = SchemaIds::entity_id((int) $post->ID, '#event');
+        if ($event_id === '') {
+            return [];
+        }
+
         // Create event schema piece
-        $event = new SchemaPiece('#event', $event_data['eventType'] ?? 'Event');
-        
+        $event = new SchemaPiece($event_id, $event_data['eventType'] ?? 'Event');
+
+        foreach (SchemaIds::page_links((int) $post->ID) as $property => $reference) {
+            $event->set($property, $reference);
+        }
+
         // Set basic event data
         $event->set('name', $event_data['name'] ?? get_the_title());
         
