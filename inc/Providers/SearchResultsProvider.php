@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Search Results Provider
@@ -36,8 +37,12 @@ class SearchResultsProvider implements SchemaProviderInterface
         $search_page->set('url', $this->get_current_url());
         $search_page->set('name', sprintf(__('Search Results for: %s'), $search_query));
         
-        // Add breadcrumb reference if available
-        $search_page->add_reference('breadcrumb', '#breadcrumb');
+        // Only reference a BreadcrumbList when one will actually be in the graph
+        // — an unconditional reference dangles on any site without a breadcrumb
+        // provider. Same gate WebPageProvider uses.
+        if (apply_filters('wp_schema_framework_has_breadcrumb', false)) {
+            $search_page->add_reference('breadcrumb', SchemaIds::breadcrumb_id());
+        }
         
         // Add search action that was performed
         $search_page->set('potentialAction', [

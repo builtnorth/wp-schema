@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Archive Provider
@@ -36,8 +37,12 @@ class ArchiveProvider implements SchemaProviderInterface
         // Set name and description based on archive type
         $this->set_archive_metadata($archive);
         
-        // Add breadcrumb reference if available
-        $archive->add_reference('breadcrumb', '#breadcrumb');
+        // Only reference a BreadcrumbList when one will actually be in the graph
+        // — an unconditional reference dangles on any site without a breadcrumb
+        // provider. Same gate WebPageProvider uses.
+        if (apply_filters('wp_schema_framework_has_breadcrumb', false)) {
+            $archive->add_reference('breadcrumb', SchemaIds::breadcrumb_id());
+        }
         
         // Add the main entity (list of items)
         $items = $this->get_archive_items();

@@ -6,6 +6,7 @@ namespace BuiltNorth\WPSchema\Providers;
 
 use BuiltNorth\WPSchema\Contracts\SchemaProviderInterface;
 use BuiltNorth\WPSchema\Graph\SchemaPiece;
+use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Media Provider
@@ -96,8 +97,12 @@ class MediaProvider implements SchemaProviderInterface
         // Add license information if available
         $this->add_license_info($media, $attachment_id);
         
-        // Add breadcrumb reference
-        $media->add_reference('breadcrumb', '#breadcrumb');
+        // Only reference a BreadcrumbList when one will actually be in the graph
+        // — an unconditional reference dangles on any site without a breadcrumb
+        // provider. Same gate WebPageProvider uses.
+        if (apply_filters('wp_schema_framework_has_breadcrumb', false)) {
+            $media->add_reference('breadcrumb', SchemaIds::breadcrumb_id());
+        }
         
         // Allow filtering of media data
         $data = apply_filters('wp_schema_framework_media_data', $media->to_array(), $context, $attachment_id);
