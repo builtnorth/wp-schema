@@ -48,6 +48,20 @@ class WebsiteProvider implements SchemaProviderInterface
             ->set('url', home_url('/'))
             ->add_reference('publisher', SchemaIds::organization_id());
 
+        // Navigation nodes describe this site, so hang them off the WebSite
+        // node rather than leaving them floating unreferenced in the graph.
+        $navigation = array_values(array_filter(
+            (array) apply_filters('wp_schema_framework_website_navigation_ids', []),
+            static fn ($id): bool => is_string($id) && $id !== ''
+        ));
+
+        if ($navigation !== []) {
+            $website->set('hasPart', array_map(
+                static fn (string $id): array => [ '@id' => $id ],
+                $navigation
+            ));
+        }
+
         // Add description if available
         $description = get_bloginfo('description');
         if ($description) {
