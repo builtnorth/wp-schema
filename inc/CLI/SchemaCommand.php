@@ -201,7 +201,61 @@ class SchemaCommand
         // Some plugins swap $wp_query; make sure conditionals read the main query.
         $wp_query = $wp_the_query;
 
+        $this->resolve_template();
+
         return App::instance()->get_context_detector()->get_current_context();
+    }
+
+    /**
+     * Run the template hierarchy for the resolved query.
+     *
+     * A provider may look at the template to decide what to emit — whether a
+     * block is on the page, say. That lives in $_wp_current_template_content,
+     * which only core's template resolution populates, and which
+     * template-loader.php normally fills in *after* the query is set up and
+     * before wp_head runs. Without this the command builds its graph against an
+     * empty template and disagrees with the real page.
+     *
+     * Mirrors the tag-to-function table in template-loader.php; core exposes no
+     * single helper for "resolve the template for the current query".
+     */
+    private function resolve_template(): void
+    {
+        if (! current_theme_supports('block-templates')) {
+            return;
+        }
+
+        $tag_templates = [
+            'is_embed'             => 'get_embed_template',
+            'is_404'               => 'get_404_template',
+            'is_search'            => 'get_search_template',
+            'is_front_page'        => 'get_front_page_template',
+            'is_home'              => 'get_home_template',
+            'is_privacy_policy'    => 'get_privacy_policy_template',
+            'is_post_type_archive' => 'get_post_type_archive_template',
+            'is_tax'               => 'get_taxonomy_template',
+            'is_attachment'        => 'get_attachment_template',
+            'is_single'            => 'get_single_template',
+            'is_page'              => 'get_page_template',
+            'is_singular'          => 'get_singular_template',
+            'is_category'          => 'get_category_template',
+            'is_tag'               => 'get_tag_template',
+            'is_author'            => 'get_author_template',
+            'is_date'              => 'get_date_template',
+            'is_archive'           => 'get_archive_template',
+        ];
+
+        foreach ($tag_templates as $tag => $callback) {
+            if (function_exists($tag) && call_user_func($tag) && function_exists($callback)) {
+                call_user_func($callback);
+
+                return;
+            }
+        }
+
+        if (function_exists('get_index_template')) {
+            get_index_template();
+        }
     }
 
     private function expected_page_id(string $context): string

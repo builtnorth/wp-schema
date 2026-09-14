@@ -38,6 +38,32 @@ if ($using_root_autoloader) {
     });
 }
 
+// Minimal WP_Post stub.
+//
+// WP_Mock stubs functions, not classes, so code that typehints \WP_Post cannot
+// be exercised with a plain stdClass. Only the properties this package actually
+// reads are declared — it is a fixture, not a reimplementation.
+if ( ! class_exists( 'WP_Post' ) ) {
+	class WP_Post {
+		public int $ID = 0;
+		public string $post_type = 'post';
+		public string $post_name = '';
+		public string $post_title = '';
+		public string $post_excerpt = '';
+		public string $post_content = '';
+		public int $post_author = 0;
+
+		/**
+		 * @param array<string, mixed> $props
+		 */
+		public function __construct( array $props = [] ) {
+			foreach ( $props as $key => $value ) {
+				$this->$key = $value;
+			}
+		}
+	}
+}
+
 // Bootstrap WP_Mock
 WP_Mock::bootstrap();
 
