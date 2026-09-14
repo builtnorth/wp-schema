@@ -10,54 +10,78 @@ use BuiltNorth\WPSchema\Services\SchemaIds;
 
 /**
  * Page Type Provider
- * 
- * Provides specialized page type schemas (ContactPage, AboutPage, etc.)
- * when selected via schema type override.
- * 
+ *
+ * Contributes subtype-specific properties (ContactPage, AboutPage, FAQPage…) to
+ * the page node WebPageProvider emits.
+ *
+ * It deliberately emits no node of its own. A page that is "also a ContactPage"
+ * is one thing with two types — schema.org expresses that as a single node typed
+ * `["WebPage","ContactPage"]`, not two nodes competing to describe the same URL.
+ * WebPageProvider owns the node and appends the subtype; this provider decorates
+ * it through `wp_schema_framework_piece_id_webpage`, the seam SchemaGraph already
+ * documents for contributing properties to an existing node.
+ *
  * @since 3.0.0
  */
 class PageTypeProvider implements SchemaProviderInterface
 {
+    public function __construct()
+    {
+        add_filter('wp_schema_framework_piece_id_webpage', [$this, 'decorate_page_node'], 10, 2);
+    }
+
+    /**
+     * This provider contributes to another provider's node, so it never
+     * supplies a piece of its own.
+     */
     public function can_provide(string $context): bool
     {
-        // Only provide for singular pages
-        if ($context !== 'singular' || !is_singular()) {
-            return false;
-        }
-        
-        // Check if there's a schema type override
-        $post_id = get_the_ID();
-        if (!$post_id) {
-            return false;
-        }
-        
-        $schema_type = apply_filters('wp_schema_framework_post_type_override', '', $post_id, get_post_type(), get_post());
-        
-        // Check if it's one of our supported page types
-        return in_array($schema_type, $this->get_supported_types(), true);
+        return false;
     }
-    
+
     public function get_pieces(string $context): array
     {
+        return [];
+    }
+
+    /**
+     * Add subtype-specific properties to the page node.
+     *
+     * @param mixed  $page    The WebPage piece, per the piece filter contract.
+     * @param string $context Current context.
+     * @return mixed The piece, decorated when a supported subtype applies.
+     */
+    public function decorate_page_node($page, string $context = '')
+    {
+        if (!$page instanceof SchemaPiece) {
+            return $page;
+        }
+
         $post = get_post();
         if (!$post) {
-            return [];
+            return $page;
         }
-        
-        // Get the schema type override
-        $schema_type = apply_filters('wp_schema_framework_post_type_override', '', $post->ID, $post->post_type, $post);
-        
-        if (!in_array($schema_type, $this->get_supported_types(), true)) {
-            return [];
+
+        // The subtype is whatever WebPageProvider resolved onto the node's
+        // @type, so the two can never disagree about which page this is.
+        $schema_type = '';
+        foreach ($page->get_types() as $type) {
+            if (in_array($type, self::get_supported_types(), true)) {
+                $schema_type = $type;
+                break;
+            }
         }
-        
-        // Create the appropriate page type
-        $page = new SchemaPiece('#' . $post->post_name, $schema_type);
-        
-        // Set common properties
-        $this->set_common_properties($page, $post);
-        
-        // Set type-specific properties
+
+        if ($schema_type === '') {
+            return $page;
+        }
+
+        // No common properties here. url/name/headline/dates/description/image/
+        // publisher/isPartOf/author all belong to WebPageProvider, which owns
+        // this node — re-setting them would overwrite its values, and in the
+        // case of `author` would replace a reference to the #author node with
+        // an inline blob, severing the graph link. This provider adds only what
+        // is specific to the subtype.
         switch ($schema_type) {
             case 'ContactPage':
                 $this->set_contact_page_properties($page, $post);
@@ -87,22 +111,21 @@ class PageTypeProvider implements SchemaProviderInterface
                 $this->set_media_gallery_properties($page, $post);
                 break;
         }
-        
-        // Allow filtering of page data
+
         $data = apply_filters('wp_schema_framework_page_type_data', $page->to_array(), $context, $schema_type);
         $page->from_array($data);
-        
-        return [$page];
+
+        return $page;
     }
-    
+
     public function get_priority(): int
     {
         return 15; // Higher priority than ArticleProvider
     }
-    
+
     /**
-     * WebPage subtypes this provider emits. Public so WebPageProvider can yield
-     * to it rather than producing a second page node.
+     * WebPage subtypes this provider decorates. Public so WebPageProvider can
+     * append the matching subtype to the page node's @type.
      *
      * @return string[]
      */
@@ -124,53 +147,6 @@ class PageTypeProvider implements SchemaProviderInterface
     /**
      * Set common properties for all page types
      */
-    private function set_common_properties(SchemaPiece $page, \WP_Post $post): void
-    {
-        // Basic properties
-        $page->set('url', get_permalink($post));
-        $page->set('name', get_the_title($post));
-        $page->set('headline', get_the_title($post));
-        
-        // Dates
-        $page->set('datePublished', get_the_date('c', $post));
-        $page->set('dateModified', get_the_modified_date('c', $post));
-        
-        // Description
-        if ($post->post_excerpt) {
-            $page->set('description', wp_strip_all_tags($post->post_excerpt));
-        }
-        
-        // Author
-        $author_id = $post->post_author;
-        if ($author_id) {
-            $page->set('author', [
-                '@type' => 'Person',
-                'name' => get_the_author_meta('display_name', $author_id),
-                'url' => get_author_posts_url($author_id),
-            ]);
-        }
-        
-        // Publisher (organization)
-        $page->add_reference('publisher', SchemaIds::organization_id());
-        
-        // Featured image
-        if (has_post_thumbnail($post->ID)) {
-            $image_url = get_the_post_thumbnail_url($post->ID, 'full');
-            if ($image_url) {
-                $page->set('image', [
-                    '@type' => 'ImageObject',
-                    'url' => $image_url,
-                ]);
-            }
-        }
-        
-        // Breadcrumb
-        $page->add_reference('breadcrumb', '#breadcrumb');
-        
-        // Main entity (the content)
-        $page->add_reference('mainEntity', '#main-content');
-    }
-    
     /**
      * Set ContactPage specific properties
      */
@@ -194,8 +170,15 @@ class PageTypeProvider implements SchemaProviderInterface
      */
     private function set_about_page_properties(SchemaPiece $page, \WP_Post $post): void
     {
-        // Reference the organization this page is about
-        $page->add_reference('about', SchemaIds::organization_id());
+        // Reference the organization this page is about — unless something
+        // already claimed `about`. A consumer filtering wp_schema_framework_
+        // webpage_data may have pointed the page at a specific entity (e.g. a
+        // primary storefront location, whose business data lives on the
+        // organization node); overwriting that would discard a deliberate
+        // decision made with more context than this provider has.
+        if (!$page->has('about')) {
+            $page->add_reference('about', SchemaIds::organization_id());
+        }
 
         // Add main entity reference
         $page->set('mainEntity', [
@@ -210,10 +193,13 @@ class PageTypeProvider implements SchemaProviderInterface
     {
         // Mark as accessible for free
         $page->set('isAccessibleForFree', true);
-        
-        // Add in language
-        $page->set('inLanguage', get_locale());
-        
+
+        // WebPageProvider already sets inLanguage from get_bloginfo('language');
+        // only fill it when nothing has.
+        if (!$page->has('inLanguage')) {
+            $page->set('inLanguage', get_locale());
+        }
+
         // Last reviewed date (use modified date)
         $page->set('lastReviewed', get_the_modified_date('c', $post));
     }
@@ -225,10 +211,13 @@ class PageTypeProvider implements SchemaProviderInterface
     {
         // Mark as accessible for free
         $page->set('isAccessibleForFree', true);
-        
-        // Add in language
-        $page->set('inLanguage', get_locale());
-        
+
+        // WebPageProvider already sets inLanguage from get_bloginfo('language');
+        // only fill it when nothing has.
+        if (!$page->has('inLanguage')) {
+            $page->set('inLanguage', get_locale());
+        }
+
         // Last reviewed date
         $page->set('lastReviewed', get_the_modified_date('c', $post));
     }
@@ -247,8 +236,11 @@ class PageTypeProvider implements SchemaProviderInterface
             ],
         ]);
         
-        // Mark as part of website
-        $page->add_reference('isPartOf', SchemaIds::website_id());
+        // Mark as part of website — WebPageProvider already sets this to the
+        // same node, so only fill it when nothing has.
+        if (!$page->has('isPartOf')) {
+            $page->add_reference('isPartOf', SchemaIds::website_id());
+        }
     }
     
     /**

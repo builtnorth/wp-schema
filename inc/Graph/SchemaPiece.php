@@ -15,29 +15,57 @@ namespace BuiltNorth\WPSchema\Graph;
 class SchemaPiece
 {
     private string $id;
-    private string $type;
+    /** @var string|string[] */
+    private $type;
     private string $name;
     private array $data;
     private array $references = [];
 
     /**
-     * @param string      $id   The JSON-LD @id. Prefer an absolute IRI.
-     * @param string      $type The schema.org @type.
-     * @param array       $data Initial properties.
-     * @param string|null $name Short, site-independent handle used to build hook
-     *                          names (e.g. "organization"). Derived from $id when
-     *                          omitted — see derive_name().
+     * @param string          $id   The JSON-LD @id. Prefer an absolute IRI.
+     * @param string|string[] $type The schema.org @type. An array expresses a
+     *                              multi-typed node — schema.org's way of saying
+     *                              one thing is both, e.g. ['WebPage','FAQPage']
+     *                              for a page that is also an FAQ. The first
+     *                              entry is the primary type (see get_type()).
+     * @param array           $data Initial properties.
+     * @param string|null     $name Short, site-independent handle used to build hook
+     *                              names (e.g. "organization"). Derived from $id when
+     *                              omitted — see derive_name().
      */
-    public function __construct(string $id, string $type, array $data = [], ?string $name = null)
+    public function __construct(string $id, $type, array $data = [], ?string $name = null)
     {
         $this->id = $id;
-        $this->type = $type;
+        $this->type = self::normalize_type($type);
         $this->name = $name !== null && $name !== '' ? $name : self::derive_name($id);
         $this->data = $data;
 
         // Always include @type and @id
-        $this->data['@type'] = $type;
+        $this->data['@type'] = $this->type;
         $this->data['@id'] = $id;
+    }
+
+    /**
+     * Collapse a single-entry list to a plain string so the common case keeps
+     * emitting `"@type": "WebPage"` rather than `"@type": ["WebPage"]`. Both are
+     * valid JSON-LD, but consumers (and our own tests) expect the scalar form.
+     *
+     * @param string|string[] $type
+     * @return string|string[]
+     */
+    private static function normalize_type($type)
+    {
+        if (!is_array($type)) {
+            return $type;
+        }
+
+        $types = array_values(array_unique(array_filter($type, 'is_string')));
+
+        if ($types === []) {
+            return '';
+        }
+
+        return count($types) === 1 ? $types[0] : $types;
     }
 
     /**
@@ -84,11 +112,46 @@ class SchemaPiece
     }
     
     /**
-     * Get piece type
+     * The primary schema.org type, always a string.
+     *
+     * Multi-typed nodes return their first type. Callers use this to build hook
+     * names (`wp_schema_framework_piece_{type}`) and to compare types, both of
+     * which need a stable scalar — a node becoming multi-typed must not silently
+     * rename its hook or break string comparison. Use get_types() for the full
+     * list and to_array()['@type'] for what is actually emitted.
      */
     public function get_type(): string
     {
-        return $this->type;
+        return is_array($this->type) ? (string) ($this->type[0] ?? '') : $this->type;
+    }
+
+    /**
+     * Every schema.org type on this node, primary first.
+     *
+     * @return string[]
+     */
+    public function get_types(): array
+    {
+        return is_array($this->type) ? $this->type : ($this->type === '' ? [] : [$this->type]);
+    }
+
+    /**
+     * Add a schema.org type to this node, making it multi-typed.
+     *
+     * schema.org's model for "this page is also an FAQ" is one node with
+     * `"@type": ["WebPage","FAQPage"]` — not a second node. Adding a type this
+     * way keeps the primary type (and therefore the node's hook name) stable.
+     */
+    public function add_type(string $type): self
+    {
+        if ($type === '' || in_array($type, $this->get_types(), true)) {
+            return $this;
+        }
+
+        $this->type = self::normalize_type(array_merge($this->get_types(), [$type]));
+        $this->data['@type'] = $this->type;
+
+        return $this;
     }
     
     /**

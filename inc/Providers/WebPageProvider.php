@@ -18,9 +18,10 @@ use BuiltNorth\WPSchema\Services\SchemaIds;
  * where WebPage is unconditional and the "article type" setting drives only the
  * entity.
  *
- * The one case it yields: when the resolved type is a WebPage subtype that
- * PageTypeProvider handles (AboutPage, ContactPage…), that provider emits the
- * page node instead, so we don't produce two.
+ * When the resolved type is a WebPage subtype (AboutPage, ContactPage, FAQPage…)
+ * this node becomes multi-typed — `"@type": ["WebPage","ContactPage"]` — and
+ * PageTypeProvider contributes the subtype-specific properties to it. One page,
+ * one node, however many types describe it.
  *
  * @since 3.0.0
  */
@@ -37,14 +38,23 @@ class WebPageProvider implements SchemaProviderInterface
         }
 
         $post = get_queried_object();
-        if (!$post || !isset($post->ID)) {
-            return false;
-        }
 
+        return (bool) ($post && isset($post->ID));
+    }
+
+    /**
+     * The WebPage subtype for this post, or '' for an ordinary page.
+     *
+     * A page that is "also a ContactPage" is one multi-typed node, not two
+     * nodes — so the subtype is appended to this node's @type rather than
+     * emitted separately. PageTypeProvider owns the per-subtype properties.
+     */
+    private function page_subtype(\WP_Post $post): string
+    {
         $default_type = $this->get_default_schema_type($post->post_type);
         $schema_type = apply_filters('wp_schema_framework_post_type_override', $default_type, $post->ID, $post->post_type, $post);
 
-        return !in_array($schema_type, PageTypeProvider::get_supported_types(), true);
+        return in_array($schema_type, PageTypeProvider::get_supported_types(), true) ? (string) $schema_type : '';
     }
 
     public function get_pieces(string $context): array
@@ -56,7 +66,7 @@ class WebPageProvider implements SchemaProviderInterface
             $webpage
                 ->set('name', get_bloginfo('name'))
                 ->set('headline', get_bloginfo('name'))
-                ->set('url', home_url())
+                ->set('url', home_url('/'))
                 ->set('inLanguage', get_bloginfo('language'))
                 ->add_reference('publisher', SchemaIds::organization_id())
                 ->add_reference('isPartOf', SchemaIds::website_id());
@@ -73,6 +83,16 @@ class WebPageProvider implements SchemaProviderInterface
                 if ($page_id) {
                     $post = get_post($page_id);
                     if ($post) {
+                        // A static front page is still a page: it can resolve to
+                        // a WebPage subtype (ContactPage, FAQPage…) exactly as a
+                        // singular request does, so append it here too. Without
+                        // this the home node stays plain WebPage and
+                        // PageTypeProvider never decorates it.
+                        $subtype = $this->page_subtype($post);
+                        if ($subtype !== '') {
+                            $webpage->add_type($subtype);
+                        }
+
                         $webpage->set('headline', $post->post_title);
 
                         if ($post->post_excerpt) {
@@ -104,7 +124,7 @@ class WebPageProvider implements SchemaProviderInterface
             
             // Only add breadcrumb reference if a BreadcrumbList will be in the graph
             if (apply_filters('wp_schema_framework_has_breadcrumb', false)) {
-                $webpage->add_reference('breadcrumb', '#breadcrumb');
+                $webpage->add_reference('breadcrumb', SchemaIds::breadcrumb_id());
             }
 
             // Allow filtering of homepage data
@@ -127,9 +147,17 @@ class WebPageProvider implements SchemaProviderInterface
         }
 
         // Always WebPage: the entity type (Article, Service, Hotel…) lives on the
-        // entity node, which points back here via mainEntityOfPage.
+        // entity node, which points back here via mainEntityOfPage. A WebPage
+        // *subtype* (ContactPage, FAQPage…) is different — it describes this same
+        // page, so it is appended to this node's @type instead of becoming a
+        // second node. Mirrors Yoast, which emits ["WebPage","FAQPage"].
         $webpage = new SchemaPiece($webpage_id, 'WebPage', [], 'webpage');
-        
+
+        $subtype = $this->page_subtype($post);
+        if ($subtype !== '') {
+            $webpage->add_type($subtype);
+        }
+
         $webpage
             ->set('headline', $post->post_title)
             ->set('name', $post->post_title)
@@ -171,7 +199,7 @@ class WebPageProvider implements SchemaProviderInterface
         
         // Only add breadcrumb reference if a BreadcrumbList will be in the graph
         if (apply_filters('wp_schema_framework_has_breadcrumb', false)) {
-            $webpage->add_reference('breadcrumb', '#breadcrumb');
+            $webpage->add_reference('breadcrumb', SchemaIds::breadcrumb_id());
         }
 
         // Allow filtering of webpage data
