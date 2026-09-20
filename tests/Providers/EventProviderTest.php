@@ -95,4 +95,74 @@ class EventProviderTest extends TestCase {
 
 		$this->assertSame( [], $this->provider->get_pieces( 'singular' ) );
 	}
+
+	/**
+	 * Virtual meeting URLs often carry access tokens — omit from public schema.
+	 */
+	public function test_virtual_location_omits_url(): void {
+		$this->queried_post( 'https://example.com/thing/' );
+		$this->event_data_is(
+			[
+				'name'     => 'Online Meetup',
+				'location' => [
+					'type' => 'VirtualLocation',
+					'url'  => 'https://zoom.us/j/123?pwd=secret',
+				],
+			]
+		);
+
+		$location = $this->provider->get_pieces( 'singular' )[0]->to_array()['location'];
+
+		$this->assertSame( 'VirtualLocation', $location['@type'] );
+		$this->assertArrayNotHasKey( 'url', $location );
+	}
+
+	/**
+	 * Organizer contact details stay out of the default graph.
+	 */
+	public function test_organizer_omits_email_and_telephone(): void {
+		$this->queried_post( 'https://example.com/thing/' );
+		$this->event_data_is(
+			[
+				'name'      => 'Meetup',
+				'organizer' => [
+					'name'      => 'Built North',
+					'email'     => 'secret@example.com',
+					'telephone' => '+1-555-0100',
+					'url'       => 'https://example.com/org',
+				],
+			]
+		);
+
+		$organizer = $this->provider->get_pieces( 'singular' )[0]->to_array()['organizer'];
+
+		$this->assertSame( 'Built North', $organizer['name'] );
+		$this->assertSame( 'https://example.com/org', $organizer['url'] );
+		$this->assertArrayNotHasKey( 'email', $organizer );
+		$this->assertArrayNotHasKey( 'telephone', $organizer );
+	}
+
+	/**
+	 * Events Manager does not ship JSON-LD — we provide unless the opt-in filter says otherwise.
+	 */
+	public function test_events_manager_stand_down_is_opt_in(): void {
+		if ( ! class_exists( 'EM_Events', false ) ) {
+			eval( 'class EM_Events {}' );
+		}
+
+		WP_Mock::userFunction( 'get_post_type' )->andReturn( 'event' );
+		WP_Mock::userFunction( 'get_the_ID' )->andReturn( 42 );
+
+		WP_Mock::onFilter( 'wp_schema_framework_events_manager_schema_active' )
+			->with( false )
+			->reply( false );
+
+		$this->assertTrue( $this->provider->can_provide( 'singular' ) );
+
+		WP_Mock::onFilter( 'wp_schema_framework_events_manager_schema_active' )
+			->with( false )
+			->reply( true );
+
+		$this->assertFalse( $this->provider->can_provide( 'singular' ) );
+	}
 }

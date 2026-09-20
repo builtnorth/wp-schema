@@ -95,13 +95,19 @@ class OutputService
         }
 
         // JSON_HEX_TAG prevents </script> breakout inside <script type="application/ld+json">
-        $json = json_encode($graph_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        
-        // Allow filtering of JSON string
-        $json = apply_filters('wp_schema_framework_json_output', $json, $graph_data);
-        
-        if ($json) {
-            echo '<script type="application/ld+json">' . $json . '</script>' . PHP_EOL;
+        $encoded = json_encode($graph_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+        if ($encoded === false) {
+            return;
         }
+        
+        // Allow filtering of JSON string — but never echo a value that can close the script tag.
+        $json = apply_filters('wp_schema_framework_json_output', $encoded, $graph_data);
+
+        if (!is_string($json) || $json === '' || stripos($json, '</script') !== false) {
+            $json = $encoded;
+        }
+        
+        echo '<script type="application/ld+json">' . $json . '</script>' . PHP_EOL;
     }
 }

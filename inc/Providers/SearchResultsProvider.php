@@ -233,8 +233,8 @@ class SearchResultsProvider implements SchemaProviderInterface
             return $text;
         }
         
-        // Escape terms for regex
-        $terms = array_map('preg_quote', $terms);
+        // Escape terms for regex (delimiter must match the pattern below)
+        $terms = array_map(static fn(string $term): string => preg_quote($term, '/'), $terms);
         
         // Create pattern to match any term
         $pattern = '/\b(' . implode('|', $terms) . ')\b/i';

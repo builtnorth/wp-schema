@@ -17,6 +17,12 @@ use BuiltNorth\WPSchema\Graph\SchemaPiece;
  */
 class CommentProvider implements SchemaProviderInterface
 {
+    /**
+     * Max characters of comment body kept in JSON-LD (after stripping tags).
+     * Full threads otherwise bloat every singular page's script tag.
+     */
+    private const MAX_COMMENT_TEXT_LENGTH = 280;
+
     public function __construct()
     {
         // Hook into piece filters to add comments
@@ -125,7 +131,9 @@ class CommentProvider implements SchemaProviderInterface
                 '@id' => get_comment_link($comment),
                 'author' => $this->get_comment_author($comment),
                 'dateCreated' => get_comment_date('c', $comment),
-                'text' => wp_strip_all_tags($comment->comment_content),
+                'text' => self::truncate_comment_text(
+                    wp_strip_all_tags($comment->comment_content)
+                ),
             ];
             
             // Add parent reference for replies
@@ -157,6 +165,38 @@ class CommentProvider implements SchemaProviderInterface
         
         return $comment_schema;
     }
+
+    /**
+     * Cap comment body length for public JSON-LD.
+     *
+     * Filter: wp_schema_framework_comment_text_max_length (int, default 280).
+     * Pass 0 or negative to keep the full stripped text.
+     */
+    public static function truncate_comment_text(string $text): string
+    {
+        $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+        if ($text === '') {
+            return '';
+        }
+
+        $max = (int) apply_filters('wp_schema_framework_comment_text_max_length', self::MAX_COMMENT_TEXT_LENGTH);
+        if ($max <= 0) {
+            return $text;
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            if (mb_strlen($text) <= $max) {
+                return $text;
+            }
+            return rtrim(mb_substr($text, 0, $max)) . '…';
+        }
+
+        if (strlen($text) <= $max) {
+            return $text;
+        }
+
+        return rtrim(substr($text, 0, $max)) . '…';
+    }
     
     /**
      * Get comment author schema
@@ -168,9 +208,12 @@ class CommentProvider implements SchemaProviderInterface
             'name' => $comment->comment_author,
         ];
         
-        // Add author URL if available
+        // Add author URL if available (http(s) only)
         if (!empty($comment->comment_author_url)) {
-            $author['url'] = $comment->comment_author_url;
+            $author_url = esc_url($comment->comment_author_url, ['http', 'https']);
+            if ($author_url) {
+                $author['url'] = $author_url;
+            }
         }
         
         // Check if comment is by a registered user
@@ -180,19 +223,15 @@ class CommentProvider implements SchemaProviderInterface
                 $author['@id'] = get_author_posts_url($comment->user_id);
                 $author['name'] = $user->display_name;
                 
-                // Add author image if available
+                // Add author image if available (user id — not email-derived)
                 $avatar_url = get_avatar_url($comment->user_id);
                 if ($avatar_url) {
                     $author['image'] = $avatar_url;
                 }
             }
-        } else {
-            // For non-registered users, try to get gravatar
-            $avatar_url = get_avatar_url($comment->comment_author_email);
-            if ($avatar_url) {
-                $author['image'] = $avatar_url;
-            }
         }
+        // Guests: do not emit Gravatar from comment_author_email — the hash is
+        // reversible enough to expose the address.
         
         return $author;
     }

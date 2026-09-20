@@ -36,11 +36,17 @@ class ProductProvider implements SchemaProviderInterface
         
         // Auto-detect Easy Digital Downloads
         if (class_exists('Easy_Digital_Downloads') && get_post_type() === 'download') {
+            if ($this->is_edd_schema_enabled()) {
+                return false;
+            }
             return true;
         }
         
         // Auto-detect BigCommerce
         if (function_exists('bigcommerce') && get_post_type() === 'bigcommerce_product') {
+            if ($this->is_bigcommerce_schema_enabled()) {
+                return false;
+            }
             return true;
         }
         
@@ -365,6 +371,32 @@ class ProductProvider implements SchemaProviderInterface
         // WooCommerce outputs schema by default, so return true unless explicitly disabled
         // Developers can override this with our filter
         return apply_filters('wp_schema_framework_woocommerce_schema_active', true);
+    }
+
+    /**
+     * Whether Easy Digital Downloads is emitting Product JSON-LD.
+     *
+     * EDD 3+ uses EDD_Structured_Data on single download pages.
+     */
+    private function is_edd_schema_enabled(): bool
+    {
+        if (!class_exists('EDD_Structured_Data')) {
+            return false;
+        }
+
+        return apply_filters('wp_schema_framework_edd_schema_active', true);
+    }
+
+    /**
+     * Whether BigCommerce (or a companion) is emitting Product JSON-LD.
+     *
+     * The BigCommerce plugin does not ship a stable public schema class the
+     * way Woo/EDD do — default is that we provide. Flip the filter when
+     * another source on the site already prints Product markup.
+     */
+    private function is_bigcommerce_schema_enabled(): bool
+    {
+        return apply_filters('wp_schema_framework_bigcommerce_schema_active', false);
     }
     
     /**

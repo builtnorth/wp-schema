@@ -85,4 +85,45 @@ class ProductProviderTest extends TestCase {
 
 		$this->assertSame( [], $this->provider->get_pieces( 'singular' ) );
 	}
+
+	/**
+	 * EDD 3+ ships Product JSON-LD — stand down when its structured-data class is present.
+	 */
+	public function test_stands_down_when_edd_structured_data_is_active(): void {
+		if ( ! class_exists( 'EDD_Structured_Data', false ) ) {
+			eval( 'class EDD_Structured_Data {}' );
+		}
+		if ( ! class_exists( 'Easy_Digital_Downloads', false ) ) {
+			eval( 'class Easy_Digital_Downloads {}' );
+		}
+
+		WP_Mock::userFunction( 'get_post_type' )->andReturn( 'download' );
+		WP_Mock::userFunction( 'get_the_ID' )->andReturn( 42 );
+		WP_Mock::onFilter( 'wp_schema_framework_edd_schema_active' )
+			->with( true )
+			->reply( true );
+
+		$this->assertFalse( $this->provider->can_provide( 'singular' ) );
+	}
+
+	/**
+	 * BigCommerce defaults to us providing; filter can force a stand-down.
+	 */
+	public function test_bigcommerce_stand_down_is_opt_in(): void {
+		WP_Mock::userFunction( 'get_post_type' )->andReturn( 'bigcommerce_product' );
+		WP_Mock::userFunction( 'get_the_ID' )->andReturn( 42 );
+		WP_Mock::userFunction( 'bigcommerce' )->andReturn( true );
+
+		WP_Mock::onFilter( 'wp_schema_framework_bigcommerce_schema_active' )
+			->with( false )
+			->reply( false );
+
+		$this->assertTrue( $this->provider->can_provide( 'singular' ) );
+
+		WP_Mock::onFilter( 'wp_schema_framework_bigcommerce_schema_active' )
+			->with( false )
+			->reply( true );
+
+		$this->assertFalse( $this->provider->can_provide( 'singular' ) );
+	}
 }

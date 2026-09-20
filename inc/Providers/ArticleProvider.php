@@ -182,10 +182,13 @@ class ArticleProvider implements SchemaProviderInterface
             $article->set('articleSection', $categories[0]->name);
         }
 
-        // Word count
-        $word_count = str_word_count(wp_strip_all_tags($post->post_content));
-        if ($word_count > 0) {
-            $article->set('wordCount', $word_count);
+        // Word count — skip when the post is still password-gated so we do not
+        // disclose body length to anonymous visitors.
+        if (!post_password_required($post)) {
+            $word_count = str_word_count(wp_strip_all_tags($post->post_content));
+            if ($word_count > 0) {
+                $article->set('wordCount', $word_count);
+            }
         }
 
         // Allow filtering — also gives polaris-seo a chance to add image fallback etc.

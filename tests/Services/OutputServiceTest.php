@@ -154,4 +154,45 @@ class OutputServiceTest extends TestCase
 
         $this->assertEmpty($output);
     }
+
+    /**
+     * A json_output filter that injects a raw </script> must not be echoed.
+     */
+    public function test_json_output_filter_script_breakout_is_rejected(): void
+    {
+        $piece = new SchemaPiece('#test', 'WebSite');
+        $piece->set('name', 'Test');
+
+        $graph = Mockery::mock(SchemaGraph::class);
+        $graph->shouldReceive('is_empty')->andReturn(false);
+        $graph->shouldReceive('get_pieces')->andReturn([$piece]);
+
+        $graph_builder = Mockery::mock(GraphBuilder::class);
+        $graph_builder->shouldReceive('build_for_context')->andReturn($graph);
+
+        $context_detector = Mockery::mock(ContextDetector::class);
+        $context_detector->shouldReceive('get_current_context')->andReturn('home');
+        $context_detector->shouldReceive('should_generate_schema')->with('home')->andReturn(true);
+
+        WP_Mock::userFunction('do_action')->andReturn(null);
+        WP_Mock::userFunction('apply_filters')
+            ->andReturnUsing(function ($hook, $value) {
+                if ($hook === 'wp_schema_framework_json_output') {
+                    return '{"@graph":[]} </script><script>alert(1)</script>';
+                }
+                return $value;
+            });
+
+        $service = new OutputService($graph_builder, $context_detector);
+
+        ob_start();
+        $service->output_schema();
+        $output = ob_get_clean();
+
+        // Only one script tag pair — the malicious close must not appear mid-payload.
+        $this->assertSame(1, substr_count($output, '<script type="application/ld+json">'));
+        $this->assertSame(1, substr_count($output, '</script>'));
+        $this->assertStringNotContainsString('alert(1)', $output);
+        $this->assertStringContainsString('"name":"Test"', $output);
+    }
 }

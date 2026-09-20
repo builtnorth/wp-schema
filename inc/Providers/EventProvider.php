@@ -35,26 +35,41 @@ class EventProvider implements SchemaProviderInterface
         
         // Auto-detect Events Manager
         if (class_exists('EM_Events') && get_post_type() === 'event') {
+            if ($this->is_events_manager_schema_enabled()) {
+                return false;
+            }
             return true;
         }
         
         // Auto-detect Modern Events Calendar (MEC)
         if (function_exists('MEC') && get_post_type() === 'mec-events') {
+            if ($this->is_mec_schema_enabled()) {
+                return false;
+            }
             return true;
         }
         
         // Auto-detect Event Organiser
         if (function_exists('eventorganiser_is_event') && eventorganiser_is_event()) {
+            if ($this->is_event_organiser_schema_enabled()) {
+                return false;
+            }
             return true;
         }
         
         // Auto-detect All in One Event Calendar
         if (class_exists('Ai1ec_Event') && get_post_type() === 'ai1ec_event') {
+            if ($this->is_ai1ec_schema_enabled()) {
+                return false;
+            }
             return true;
         }
         
         // Auto-detect GatherPress
         if (class_exists('\GatherPress\Core\Event') && get_post_type() === 'gatherpress_event') {
+            if ($this->is_gatherpress_schema_enabled()) {
+                return false;
+            }
             return true;
         }
         
@@ -258,18 +273,12 @@ class EventProvider implements SchemaProviderInterface
             $data['eventType'] = $this->determine_event_type($categories[0]->name);
         }
         
-        // Check if online event
+        // Check if online event. Virtual meeting URLs (Zoom/Meet, etc.) often
+        // embed access tokens — omit them from public JSON-LD (same stance as
+        // GatherPress). Sites that need a VirtualLocation.url can add one via
+        // wp_schema_framework_tribe_events_data / wp_schema_framework_event_data.
         if (tribe_event_is_virtual($event->ID)) {
             $data['eventAttendanceMode'] = 'https://schema.org/OnlineEventAttendanceMode';
-            
-            // Add virtual URL if available
-            $virtual_url = get_post_meta($event->ID, '_tribe_events_virtual_url', true);
-            if ($virtual_url) {
-                $data['location'] = [
-                    'url' => $virtual_url,
-                    'type' => 'VirtualLocation'
-                ];
-            }
         } else {
             $data['eventAttendanceMode'] = 'https://schema.org/OfflineEventAttendanceMode';
         }
@@ -290,15 +299,18 @@ class EventProvider implements SchemaProviderInterface
             ];
         }
         
-        // Add organizer
+        // Organizer: name + public website only. Email/phone stay out of the
+        // default graph; re-add via wp_schema_framework_tribe_events_data if needed.
         if ($event->organizers->count() > 0) {
             $organizer = $event->organizers->first();
-            $data['organizer'] = [
+            $organizer_data = [
                 'name' => $organizer->post_title,
-                'telephone' => get_post_meta($organizer->ID, '_OrganizerPhone', true),
-                'email' => get_post_meta($organizer->ID, '_OrganizerEmail', true),
-                'url' => get_post_meta($organizer->ID, '_OrganizerWebsite', true),
             ];
+            $website = get_post_meta($organizer->ID, '_OrganizerWebsite', true);
+            if ($website) {
+                $organizer_data['url'] = $website;
+            }
+            $data['organizer'] = $organizer_data;
         }
         
         // Add ticket/cost info
@@ -546,9 +558,10 @@ class EventProvider implements SchemaProviderInterface
         $type = $location_data['type'] ?? 'Place';
         
         if ($type === 'VirtualLocation') {
+            // Do not emit meeting URLs by default — they frequently carry secrets.
+            // Callers may still attach a url via wp_schema_framework_event_data.
             return [
                 '@type' => 'VirtualLocation',
-                'url' => $location_data['url'] ?? ''
             ];
         }
         
@@ -599,14 +612,9 @@ class EventProvider implements SchemaProviderInterface
         if (!empty($organizer_data['url'])) {
             $organizer['url'] = $organizer_data['url'];
         }
-        
-        if (!empty($organizer_data['telephone'])) {
-            $organizer['telephone'] = $organizer_data['telephone'];
-        }
-        
-        if (!empty($organizer_data['email'])) {
-            $organizer['email'] = $organizer_data['email'];
-        }
+
+        // email / telephone intentionally omitted — public JSON-LD is scraped.
+        // Opt back in via wp_schema_framework_event_data after the piece is built.
         
         return $organizer;
     }
@@ -709,6 +717,47 @@ class EventProvider implements SchemaProviderInterface
         }
         
         return false;
+    }
+
+    /**
+     * Events Manager does not ship JSON-LD by default (themes may add microdata).
+     * Opt-in stand-down when another source already emits Event markup.
+     */
+    private function is_events_manager_schema_enabled(): bool
+    {
+        return apply_filters('wp_schema_framework_events_manager_schema_active', false);
+    }
+
+    /**
+     * Modern Events Calendar — no stable core JSON-LD class; opt-in stand-down.
+     */
+    private function is_mec_schema_enabled(): bool
+    {
+        return apply_filters('wp_schema_framework_mec_schema_active', false);
+    }
+
+    /**
+     * Event Organiser — opt-in stand-down.
+     */
+    private function is_event_organiser_schema_enabled(): bool
+    {
+        return apply_filters('wp_schema_framework_event_organiser_schema_active', false);
+    }
+
+    /**
+     * All-in-One Event Calendar — opt-in stand-down.
+     */
+    private function is_ai1ec_schema_enabled(): bool
+    {
+        return apply_filters('wp_schema_framework_ai1ec_schema_active', false);
+    }
+
+    /**
+     * GatherPress — no public Event JSON-LD in core; opt-in stand-down.
+     */
+    private function is_gatherpress_schema_enabled(): bool
+    {
+        return apply_filters('wp_schema_framework_gatherpress_schema_active', false);
     }
     
     /**

@@ -83,5 +83,9 @@ if ( ! defined( 'WP_CONTENT_URL' ) ) {
 	define( 'WP_CONTENT_URL', 'http://example.com/wp-content' );
 }
 
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
+}
+
 // Output a message to confirm bootstrap is loaded
 echo "WP Schema test bootstrap loaded with WP_Mock.\n";
