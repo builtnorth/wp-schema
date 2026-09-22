@@ -7,9 +7,9 @@
  * part. The coordinator then resolves classes from the newest registered copy
  * rather than whichever plugin happened to load first.
  *
- * Lives outside the psr-4 root on purpose: a registration file reachable
- * through its own package's namespace prefix would make the coordinator
- * resolve a class name back onto this file.
+ * Lives at the package root, outside the psr-4 root, on purpose: a
+ * registration file reachable through its own package's namespace prefix
+ * would make the coordinator resolve a class name back onto this file.
  *
  * @package BuiltNorth\WPSchema
  */
@@ -26,8 +26,8 @@ use Novalis\PackageLoader\Registry;
 if (class_exists(Registry::class, false)) {
 	Registry::instance()->register([
 		'package' => 'builtnorth/wp-schema',
-		'version' => (string) require dirname(__DIR__) . '/version.php',
-		'root'    => dirname(__DIR__),
-		'psr4'    => ['BuiltNorth\\WPSchema\\' => 'inc/'],
+		'version' => (string) require __DIR__ . '/version.php',
+		'root'    => __DIR__,
+		'psr4'    => ['BuiltNorth\\WPSchema\\' => 'inc/classes/'],
 	]);
 }
