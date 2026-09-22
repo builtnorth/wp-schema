@@ -29,7 +29,5 @@ if (class_exists(Registry::class, false)) {
 		'version' => (string) require dirname(__DIR__) . '/version.php',
 		'root'    => dirname(__DIR__),
 		'psr4'    => ['BuiltNorth\\WPSchema\\' => 'inc/'],
-		// Pure library — instantiated by its consumer, nothing to start.
-		'boot'    => null,
 	]);
 }
