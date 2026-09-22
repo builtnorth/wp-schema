@@ -7,16 +7,24 @@
  * part. The coordinator then resolves classes from the newest registered copy
  * rather than whichever plugin happened to load first.
  *
+ * Lives outside the psr-4 root on purpose: a registration file reachable
+ * through its own package's namespace prefix would make the coordinator
+ * resolve a class name back onto this file.
+ *
  * @package BuiltNorth\WPSchema
  */
 
 declare(strict_types=1);
 
+use Novalis\PackageLoader\Registry;
+
 // A consumer could vendor this package without the coordinator (a stale
 // composer.lock, a hand-assembled vendor tree). Falling back to plain Composer
 // resolution is correct there — worse version selection, never a fatal.
-if (class_exists('Novalis\\PackageLoader\\Registry', false)) {
-	\Novalis\PackageLoader\Registry::instance()->register([
+// Autoloading stays off: the coordinator declares Registry inline from its own
+// files entry, so if it is not already declared no autoloader can produce it.
+if (class_exists(Registry::class, false)) {
+	Registry::instance()->register([
 		'package' => 'builtnorth/wp-schema',
 		'version' => (string) require dirname(__DIR__) . '/version.php',
 		'root'    => dirname(__DIR__),
